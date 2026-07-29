@@ -12,11 +12,7 @@ st.set_page_config(page_title="Meta-Analysis App - Sleep & Cannabis", layout="wi
 
 # Inicializa o estado do idioma
 if 'lang' not in st.session_state:
-    st.session_state.lang = 'en'  # Padrão: Inglês
-
-# Função para alternar o idioma
-def set_lang(lang):
-    st.session_state.lang = lang
+    st.session_state.lang = 'en'
 
 # Dicionários de tradução (Strings do App)
 TEXTS = {
@@ -100,16 +96,16 @@ def fmt_num(value, decimals=3):
     if isinstance(value, (int, float)):
         formatted = f"{value:.{decimals}f}"
         if lang == "pt":
-            # Troca ponto por vírgula para decimais (Brasil)
             formatted = formatted.replace(".", ",")
         return formatted
     return str(value)
 
 # ----------------------------------------------------------------------------
-# 2. BASE DE DADOS DOS ESTUDOS (FINALIZADA E CORRIGIDA)
+# 2. BASE DE DADOS DOS ESTUDOS (10 ESTUDOS, COM PAKDEE INCLUÍDO)
 # ----------------------------------------------------------------------------
 STUDIES = [
     {"id": "Erridge et al. (2026)", "type": "Coorte", "n": 8945, "d": 0.84, "se": 0.009},
+    {"id": "Pakdee, Sribunrieng e Poowanna (2026)", "type": "RCT", "n": 20, "d": 2.84, "se": 0.635},
     {"id": "Datta et al. (2025a)", "type": "Coorte", "n": 517, "d": 0.68, "se": 0.030},
     {"id": "Datta et al. (2025b)", "type": "Coorte", "n": 269, "d": 0.32, "se": 0.020},
     {"id": "Short et al. (2025)", "type": "Coorte", "n": 137, "d": 0.80, "se": 0.068},
@@ -124,10 +120,6 @@ STUDIES = [
 # 3. FUNÇÃO PRINCIPAL DE META-ANÁLISE (Modelo de Efeitos Aleatórios - DL)
 # ----------------------------------------------------------------------------
 def run_meta_analysis(df):
-    """
-    Executa o modelo de efeitos aleatórios de DerSimonian-Laird.
-    Retorna: dicionário com resultados.
-    """
     if df.empty:
         return None
     
@@ -135,44 +127,29 @@ def run_meta_analysis(df):
     se = df['se'].values
     k = len(d)
     
-    # Pesos fixos (inverso da variância)
     w = 1 / (se ** 2)
-    
-    # Estatística Q (heterogeneidade)
     sum_w = np.sum(w)
     sum_wd = np.sum(w * d)
     sum_wd2 = np.sum(w * (d ** 2))
     Q = sum_wd2 - (sum_wd ** 2) / sum_w
     
-    # Tau² (DerSimonian-Laird)
     df_het = k - 1
     if df_het > 0:
         tau2 = max(0, (Q - df_het) / (sum_w - (np.sum(w ** 2) / sum_w)))
     else:
         tau2 = 0
     
-    # Pesos ajustados (efeitos aleatórios)
     w_star = 1 / (se ** 2 + tau2)
     sum_w_star = np.sum(w_star)
     
-    # Efeito combinado (Cohen's d)
     pooled_d = np.sum(w_star * d) / sum_w_star
-    
-    # Erro padrão do efeito combinado
     se_pooled = np.sqrt(1 / sum_w_star)
-    
-    # Intervalo de Confiança (95%)
     ci_lb = pooled_d - 1.96 * se_pooled
     ci_ub = pooled_d + 1.96 * se_pooled
     
-    # Valor-p
     z = pooled_d / se_pooled
     p_val = 2 * (1 - stats.norm.cdf(abs(z)))
-    
-    # I² (porcentagem da variabilidade devido à heterogeneidade)
     i2 = max(0, ((Q - df_het) / Q) * 100) if Q > 0 else 0
-    
-    # Calcular pesos percentuais
     weights_percent = (w_star / sum_w_star) * 100
     
     return {
@@ -199,7 +176,6 @@ def plot_forest(df, results, lang):
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # Ordenar pelo tamanho do efeito (para visualização)
     df_sorted = df.copy()
     df_sorted['weight'] = results['weights']
     df_sorted = df_sorted.sort_values('d', ascending=False).reset_index(drop=True)
@@ -210,37 +186,25 @@ def plot_forest(df, results, lang):
     ci_lower = d_values - 1.96 * se_values
     ci_upper = d_values + 1.96 * se_values
     
-    # Plotar linhas de CI (Intervalo de Confiança)
     ax.hlines(y=y_pos, xmin=ci_lower, xmax=ci_upper, color='gray', linewidth=1, alpha=0.7)
-    
-    # Plotar quadrados (tamanho proporcional ao peso)
     sizes = (df_sorted['weight'] / df_sorted['weight'].max()) * 100 + 20
     ax.scatter(d_values, y_pos, s=sizes, color='#1f77b4', zorder=5, edgecolors='black', linewidth=0.5)
     
-    # Nomes dos estudos
     ax.set_yticks(y_pos)
-    
-    # Formatar nomes (cortar se muito longos)
     labels = df_sorted['id'].tolist()
     ax.set_yticklabels(labels, fontsize=9)
     
-    # Linha vertical no zero (referência)
     ax.axvline(x=0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-    
-    # Linha vertical no efeito combinado
     ax.axvline(x=results['pooled_d'], color='red', linestyle='-', linewidth=1.5, alpha=0.6)
     
-    # Configurar eixos
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
     ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
-    ax.set_title("Forest Plot" if lang == 'en' else "Forest Plot", fontsize=12)
+    ax.set_title("Forest Plot", fontsize=12)
     
-    # Adicionar diamante do efeito combinado (na parte inferior)
     diamond_y = -0.5
     diamond_x = results['pooled_d']
-    # Desenhar diamante
     ax.plot([results['ci_lb'], diamond_x, results['ci_ub'], diamond_x, results['ci_lb']],
             [diamond_y, diamond_y - 0.2, diamond_y, diamond_y + 0.2, diamond_y],
             color='red', linewidth=2)
@@ -258,7 +222,6 @@ def plot_forest(df, results, lang):
 def main():
     lang = st.session_state.lang
     
-    # Sidebar: Seleção de Idioma
     with st.sidebar:
         st.header(t('lang_label'))
         lang_choice = st.radio(
@@ -275,79 +238,72 @@ def main():
             st.rerun()
         
         st.divider()
-        
-        # Informações
         st.subheader(t('info_sidebar'))
         st.info(t('sidebar_text') + f" **{lang.upper()}**")
         st.caption("Developed for academic research purposes.")
         
         st.divider()
         st.subheader(t('method_title'))
-        st.markdown(t('method_text', q=0.0))  # O valor Q será atualizado na seção de resultados
+        st.markdown(t('method_text', q=0.0))
     
-    # Título Principal
     st.title(t('title'))
     st.caption(t('subtitle'))
     
     # ----------------------------------------------------------------
-    # CARREGAR E SELECIONAR ESTUDOS (VERSÃO CORRIGIDA)
+    # SELECIONAR ESTUDOS (10 ESTUDOS)
     # ----------------------------------------------------------------
     df_studies = pd.DataFrame(STUDIES)
     
-    # Inicializar estados padrão para todos os checkboxes (se não existirem)
-    for idx in df_studies.index:
+    # Inicializar estados dos checkboxes (Padrão: todos marcados, exceto Pakdee)
+    for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
         if key not in st.session_state:
-            st.session_state[key] = True  # Todos marcados por padrão
+            # Desmarcar Pakdee por padrão (já que é outlier)
+            if row['id'] == "Pakdee, Sribunrieng e Poowanna (2026)":
+                st.session_state[key] = False
+            else:
+                st.session_state[key] = True
     
     st.subheader(t('select_studies'))
     
-    # Cabeçalho da tabela
-    col_headers = st.columns([0.5, 3, 1.5, 1, 1.5, 1.5])
-    col_headers[0].write("**" + t('include') + "**")
-    col_headers[1].write("**" + t('study') + "**")
-    col_headers[2].write("**" + t('type') + "**")
-    col_headers[3].write("**" + t('n') + "**")
-    col_headers[4].write("**" + t('d') + "**")
-    col_headers[5].write("**" + t('se') + "**")
+    # Cabeçalho da tabela com centralização
+    col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
+    col1.markdown("<div style='text-align: center; font-weight: bold;'>" + t('include') + "</div>", unsafe_allow_html=True)
+    col2.markdown("<div style='text-align: left; font-weight: bold;'>" + t('study') + "</div>", unsafe_allow_html=True)
+    col3.markdown("<div style='text-align: center; font-weight: bold;'>" + t('type') + "</div>", unsafe_allow_html=True)
+    col4.markdown("<div style='text-align: center; font-weight: bold;'>" + t('n') + "</div>", unsafe_allow_html=True)
+    col5.markdown("<div style='text-align: center; font-weight: bold;'>" + t('d') + "</div>", unsafe_allow_html=True)
+    col6.markdown("<div style='text-align: center; font-weight: bold;'>" + t('se') + "</div>", unsafe_allow_html=True)
     
-    selected_ids = []  # Lista para armazenar os índices selecionados
+    selected_ids = []
     
-    # Loop pelos estudos
     for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
-        cols = st.columns([0.5, 3, 1.5, 1, 1.5, 1.5])
+        col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
         
-        # Checkbox – o Streamlit já gerencia o estado via 'key'
-        checked = cols[0].checkbox(
+        checked = col1.checkbox(
             label="", 
-            value=st.session_state[key],  # Valor atual do estado
-            key=key,                      # Chave para persistência
+            value=st.session_state[key],
+            key=key,
             label_visibility="collapsed"
         )
-        # Não precisa atribuir manualmente st.session_state[key] = checked
-        
         if checked:
             selected_ids.append(idx)
         
-        cols[1].write(row['id'])
-        cols[2].write(row['type'])
-        # Formatação do N com separador de milhar localizado
+        col2.write(row['id'])
+        col3.write(row['type'])
         if lang == 'pt':
-            cols[3].write(f"{row['n']:,}".replace(",", "."))
+            col4.write(f"{row['n']:,}".replace(",", "."))
         else:
-            cols[3].write(f"{row['n']:,}")
-        cols[4].write(fmt_num(row['d'], 2))
-        cols[5].write(fmt_num(row['se'], 3))
+            col4.write(f"{row['n']:,}")
+        col5.write(fmt_num(row['d'], 2))
+        col6.write(fmt_num(row['se'], 3))
     
-    # Filtrar dados selecionados
     df_selected = df_studies.loc[selected_ids].copy()
-    
-    # Mostrar quantos estudos foram selecionados
     st.caption(f"**{len(df_selected)}** de **{len(df_studies)}** estudos selecionados.")
     
     # ----------------------------------------------------------------
-    # RODAR META-ANÁLISE
+    # EXECUTAR META-ANÁLISE
     # ----------------------------------------------------------------
     if len(df_selected) >= 2:
         results = run_meta_analysis(df_selected)
@@ -356,31 +312,22 @@ def main():
         st.warning("Selecione pelo menos **2 estudos** para realizar a meta-análise." if lang == 'en' else "Selecione pelo menos **2 estudos** para realizar a meta-análise.")
     
     if results:
-        # Atualizar a sidebar com os resultados de Q
         with st.sidebar:
             st.subheader("📊 Current Results")
             st.metric(t('q_stat'), f"{fmt_num(results['q'], 2)}")
             st.metric(t('i2'), f"{fmt_num(results['i2'], 1)} %")
             st.metric(t('tau2'), f"{fmt_num(results['tau2'], 4)}")
         
-        # ----------------------------------------------------------------
-        # EXIBIR RESULTADOS
-        # ----------------------------------------------------------------
         st.divider()
         st.subheader(t('results'))
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric(
-                label=t('pooled_effect'),
-                value=fmt_num(results['pooled_d'], 3),
-                delta=None
-            )
+            st.metric(label=t('pooled_effect'), value=fmt_num(results['pooled_d'], 3))
         with col2:
             ci_text = f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]"
             st.metric(label=t('ci'), value=ci_text)
         with col3:
-            # Formata o valor-p (se muito pequeno, mostra "< 0.001")
             if results['p_val'] < 0.001:
                 p_text = "< 0.001" if lang == 'en' else "< 0,001"
             else:
@@ -389,14 +336,10 @@ def main():
         with col4:
             st.metric(label=t('i2'), value=f"{fmt_num(results['i2'], 1)} %")
         
-        # Tabela de pesos
         st.divider()
         st.subheader("📋 Study Weights")
         df_weights = df_selected.copy()
         df_weights['Weight (%)'] = [fmt_num(w, 2) for w in results['weights']]
-        # Reordenar colunas
-        display_cols = ['id', 'type', 'n', 'd', 'se', 'Weight (%)']
-        # Renomear para o idioma
         rename_map = {
             'id': t('study'), 
             'type': t('type'), 
@@ -406,7 +349,6 @@ def main():
             'Weight (%)': t('weight')
         }
         df_display = df_weights[['id', 'type', 'n', 'd', 'se', 'Weight (%)']].rename(columns=rename_map)
-        # Formatar números na tabela
         if lang == 'pt':
             df_display[t('n')] = df_display[t('n')].apply(lambda x: f"{x:,}".replace(",", "."))
         else:
@@ -416,19 +358,14 @@ def main():
         
         st.dataframe(df_display, use_container_width=True)
         
-        # ----------------------------------------------------------------
-        # FOREST PLOT
-        # ----------------------------------------------------------------
         st.divider()
         st.subheader(t('forest_plot'))
-        
         fig = plot_forest(df_selected, results, lang)
         if fig:
             st.pyplot(fig)
             st.caption(t('download_hint'))
     
     else:
-        # Mensagem quando menos de 2 estudos estão selecionados
         st.info("👈 Selecione mais estudos na tabela acima." if lang == 'en' else "👈 Selecione mais estudos na tabela acima.")
 
 if __name__ == "__main__":
