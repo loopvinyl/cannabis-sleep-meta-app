@@ -118,8 +118,6 @@ STUDIES = [
     {"id": "Vaddiparti et al. (2023)", "type": "Coorte", "n": 15, "d": 1.44, "se": 0.372},
     {"id": "Ried et al. (2023)", "type": "RCT", "n": 29, "d": 0.69, "se": 0.128},
     {"id": "Montebello et al. (2022)", "type": "RCT", "n": 128, "d": 0.60, "se": 0.181},
-    # OBS: O outlier (Pakdee) está comentado/removido da base principal, mas se quiser manter desabilitado, descomente a linha abaixo:
-    # {"id": "Pakdee, Sribunrieng e Poowanna (2026)", "type": "RCT", "n": 20, "d": 2.84, "se": 0.635},
 ]
 
 # ----------------------------------------------------------------------------
@@ -199,7 +197,7 @@ def plot_forest(df, results, lang):
     if df.empty or results is None:
         return None
     
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     
     # Ordenar pelo tamanho do efeito (para visualização)
     df_sorted = df.copy()
@@ -236,13 +234,12 @@ def plot_forest(df, results, lang):
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
-    ax.set_xlabel(t('d') + " (Cohen's d)" if lang == 'en' else "d de Cohen", fontsize=10)
-    ax.set_title(t('forest_plot'), fontsize=12)
+    ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
+    ax.set_title("Forest Plot" if lang == 'en' else "Forest Plot", fontsize=12)
     
     # Adicionar diamante do efeito combinado (na parte inferior)
     diamond_y = -0.5
     diamond_x = results['pooled_d']
-    diamond_width = results['ci_ub'] - results['ci_lb']
     # Desenhar diamante
     ax.plot([results['ci_lb'], diamond_x, results['ci_ub'], diamond_x, results['ci_lb']],
             [diamond_y, diamond_y - 0.2, diamond_y, diamond_y + 0.2, diamond_y],
@@ -293,41 +290,53 @@ def main():
     st.caption(t('subtitle'))
     
     # ----------------------------------------------------------------
-    # CARREGAR E SELECIONAR ESTUDOS
+    # CARREGAR E SELECIONAR ESTUDOS (VERSÃO CORRIGIDA)
     # ----------------------------------------------------------------
     df_studies = pd.DataFrame(STUDIES)
     
-    # Adicionar coluna de seleção (checkbox)
-    st.subheader(t('select_studies'))
-    
-    # Criar colunas para layout da tabela
-    cols = st.columns([0.5, 3, 1.5, 1, 1.5, 1.5])
-    cols[0].write("**" + t('include') + "**")
-    cols[1].write("**" + t('study') + "**")
-    cols[2].write("**" + t('type') + "**")
-    cols[3].write("**" + t('n') + "**")
-    cols[4].write("**" + t('d') + "**")
-    cols[5].write("**" + t('se') + "**")
-    
-    selected_ids = []
-    for idx, row in df_studies.iterrows():
-        # Usar session state para manter o estado dos checkboxes
+    # Inicializar estados padrão para todos os checkboxes (se não existirem)
+    for idx in df_studies.index:
         key = f"include_{idx}"
         if key not in st.session_state:
-            st.session_state[key] = True  # Todos selecionados por padrão (exceto outliers se quiser)
-        
-        # Define o estado inicial (desmarcar outliers automaticamente? Não, vamos deixar todos marcados por padrão)
-        # Mas se quisermos, podemos desmarcar o Pakdee, mas ele está comentado na lista.
-        
+            st.session_state[key] = True  # Todos marcados por padrão
+    
+    st.subheader(t('select_studies'))
+    
+    # Cabeçalho da tabela
+    col_headers = st.columns([0.5, 3, 1.5, 1, 1.5, 1.5])
+    col_headers[0].write("**" + t('include') + "**")
+    col_headers[1].write("**" + t('study') + "**")
+    col_headers[2].write("**" + t('type') + "**")
+    col_headers[3].write("**" + t('n') + "**")
+    col_headers[4].write("**" + t('d') + "**")
+    col_headers[5].write("**" + t('se') + "**")
+    
+    selected_ids = []  # Lista para armazenar os índices selecionados
+    
+    # Loop pelos estudos
+    for idx, row in df_studies.iterrows():
+        key = f"include_{idx}"
         cols = st.columns([0.5, 3, 1.5, 1, 1.5, 1.5])
-        checked = cols[0].checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
-        st.session_state[key] = checked
+        
+        # Checkbox – o Streamlit já gerencia o estado via 'key'
+        checked = cols[0].checkbox(
+            label="", 
+            value=st.session_state[key],  # Valor atual do estado
+            key=key,                      # Chave para persistência
+            label_visibility="collapsed"
+        )
+        # Não precisa atribuir manualmente st.session_state[key] = checked
+        
         if checked:
             selected_ids.append(idx)
         
         cols[1].write(row['id'])
         cols[2].write(row['type'])
-        cols[3].write(f"{row['n']:,}".replace(",", ".") if lang == 'pt' else f"{row['n']:,}")
+        # Formatação do N com separador de milhar localizado
+        if lang == 'pt':
+            cols[3].write(f"{row['n']:,}".replace(",", "."))
+        else:
+            cols[3].write(f"{row['n']:,}")
         cols[4].write(fmt_num(row['d'], 2))
         cols[5].write(fmt_num(row['se'], 3))
     
@@ -348,7 +357,6 @@ def main():
     
     if results:
         # Atualizar a sidebar com os resultados de Q
-        # (A sidebar não atualiza dinamicamente via markdown com .format, então vamos recriar o markdown)
         with st.sidebar:
             st.subheader("📊 Current Results")
             st.metric(t('q_stat'), f"{fmt_num(results['q'], 2)}")
