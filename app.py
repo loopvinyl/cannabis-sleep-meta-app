@@ -4,16 +4,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 import io
+import textwrap
 
 # ----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO INICIAL DA PÁGINA E IDIOMA
 # ----------------------------------------------------------------------------
 st.set_page_config(page_title="Meta-Analysis App - Sleep & Cannabis", layout="wide")
 
+# Inicializa o estado do idioma
 if 'lang' not in st.session_state:
     st.session_state.lang = 'en'
 
-# Dicionários de tradução
+# ----------------------------------------------------------------------------
+# 2. DICIONÁRIO DE TRADUÇÃO (com textos de interpretação)
+# ----------------------------------------------------------------------------
 TEXTS = {
     "en": {
         "title": "🗂️ Interactive Meta-Analysis: THC/Cannabis & Sleep",
@@ -37,37 +41,37 @@ TEXTS = {
         "tau2": "Tau²",
         "q_stat": "Q-statistic",
         "forest_plot": "🌲 Forest Plot",
-        "funnel_plot": "🌀 Funnel Plot",
-        "sensitivity_plot": "🔍 Sensitivity Analysis (Leave-One-Out)",
-        "bar_plot": "📊 Effect Sizes Bar Plot",
+        "funnel_plot": "🔍 Funnel Plot (Publication Bias)",
+        "sensitivity_plot": "📉 Sensitivity Analysis (Leave-One-Out)",
         "info_sidebar": "ℹ️ About this App",
         "sidebar_text": "Select/deselect studies on the left to see how the pooled effect changes. The app uses a Random-Effects model (DerSimonian-Laird).\n\nFormatted for:",
         "download_hint": "Right-click on the plot to save it.",
         "method_title": "⚙️ Statistical Method",
         "method_text": "**DerSimonian-Laird (DL)** random-effects model.\n\nQ-statistic (Heterogeneity): **{q:.2f}**\n\nWeights are calculated based on within-study variance + between-studies variance (Tau²).",
         "interpretation_title": "📖 Interpretation Guide",
-        "cohen_d_interpret": "**Cohen's d = {:.3f}** — This is a **{}** effect size ({}).",
-        "i2_interpret": "**I² = {:.1f}%** — {} heterogeneity.",
-        "p_value_interpret": "**p = {}** — The pooled effect is {} significant.",
-        "hetero_low": "low",
-        "hetero_moderate": "moderate",
-        "hetero_high": "high",
-        "significant": "statistically",
-        "not_significant": "not statistically",
-        "effect_small": "small",
-        "effect_moderate": "moderate",
-        "effect_large": "large",
-        "effect_very_large": "very large",
-        "effect_size_guide": "**Effect size classification:** d < 0.2 = negligible; 0.2–0.5 = small; 0.5–0.8 = moderate; > 0.8 = large.",
-        "forest_explanation": "**Forest Plot:** Each square represents a study's effect size (Cohen's d), with horizontal lines indicating the 95% confidence interval. The size of the square reflects the study's weight in the meta-analysis. The diamond at the bottom shows the pooled effect and its confidence interval.",
-        "funnel_explanation": "**Funnel Plot:** Used to detect publication bias. In the absence of bias, studies should be symmetrically distributed around the pooled effect. Asymmetry may suggest missing studies (e.g., due to publication bias).",
-        "sensitivity_explanation": "**Sensitivity Analysis (Leave-One-Out):** This plot shows the pooled effect after removing each study one at a time. If the overall effect changes substantially when a particular study is removed, that study may have a disproportionate influence on the results.",
-        "bar_explanation": "**Bar Plot of Effect Sizes:** Displays each study's Cohen's d with its 95% confidence interval. This helps visualize the variation in effects across studies.",
-        "exclude_label": "Excluded Studies",
-        "excluded_note": "No studies excluded. All selected.",
-        "ci_label": "CI: [{:.3f}, {:.3f}]",
-        "leave_one_out_label": "Leave-One-Out Pooled Effect",
-        "studies_excluded": "Studies excluded"
+        "cohen_d_interpret": "**Cohen's d = {:.3f}** – This is a **{}** effect size. It indicates that the THC/cannabis intervention improved sleep quality by {:.1f} standard deviations compared to control/baseline.",
+        "effect_size_small": "small",
+        "effect_size_moderate": "moderate",
+        "effect_size_large": "large",
+        "i2_interpret": "**I² = {:.1f}%** – This indicates **{} heterogeneity**. {}",
+        "heterogeneity_low": "low",
+        "heterogeneity_moderate": "moderate",
+        "heterogeneity_high": "high",
+        "heterogeneity_low_text": "The studies are relatively consistent, suggesting that the pooled effect is reliable.",
+        "heterogeneity_moderate_text": "There is some variability among studies, but the pooled effect remains informative.",
+        "heterogeneity_high_text": "There is substantial variability among studies. This may reflect differences in populations, doses, or outcome measures. A random-effects model was used to account for this.",
+        "p_value_interpret": "**p-value {}** – The result is {}.",
+        "p_significant": "statistically significant (p < 0.05)",
+        "p_not_significant": "not statistically significant (p ≥ 0.05)",
+        "ci_interpret": "The 95% confidence interval [{:.3f}, {:.3f}] {} contain zero, {}.",
+        "ci_does_not": "does not",
+        "ci_does": "does",
+        "ci_support": "supporting a significant effect",
+        "ci_not_support": "suggesting no significant effect",
+        "funnel_interpret": "The funnel plot shows the distribution of study effects against their standard errors. Asymmetry may indicate publication bias.",
+        "sensitivity_interpret": "This plot shows the pooled effect after removing each study one at a time. If the effect remains stable, the result is robust.",
+        "weight_table": "📋 Study Weights",
+        "weight_info": "Larger squares indicate greater weight in the meta-analysis."
     },
     "pt": {
         "title": "🗂️ Meta-Análise Interativa: THC/Cannabis & Sono",
@@ -91,40 +95,43 @@ TEXTS = {
         "tau2": "Tau²",
         "q_stat": "Estatística Q",
         "forest_plot": "🌲 Forest Plot",
-        "funnel_plot": "🌀 Funnel Plot",
-        "sensitivity_plot": "🔍 Análise de Sensibilidade (Leave-One-Out)",
-        "bar_plot": "📊 Gráfico de Barras dos Tamanhos de Efeito",
+        "funnel_plot": "🔍 Gráfico de Funil (Viés de Publicação)",
+        "sensitivity_plot": "📉 Análise de Sensibilidade (Leave-One-Out)",
         "info_sidebar": "ℹ️ Sobre este App",
         "sidebar_text": "Selecione/desselecione os estudos à esquerda para ver como o efeito combinado muda. O app usa o modelo de Efeitos Aleatórios (DerSimonian-Laird).\n\nFormatado para:",
         "download_hint": "Clique com o botão direito no gráfico para salvá-lo.",
         "method_title": "⚙️ Método Estatístico",
         "method_text": "Modelo de efeitos aleatórios **DerSimonian-Laird (DL)**.\n\nEstatística Q (Heterogeneidade): **{q:.2f}**\n\nOs pesos são calculados com base na variância intra-estudo + variância entre estudos (Tau²).",
         "interpretation_title": "📖 Guia de Interpretação",
-        "cohen_d_interpret": "**d de Cohen = {:.3f}** — Este é um tamanho de efeito **{}** ({}).",
-        "i2_interpret": "**I² = {:.1f}%** — Heterogeneidade **{}**.",
-        "p_value_interpret": "**p = {}** — O efeito combinado é {} significativo.",
-        "hetero_low": "baixa",
-        "hetero_moderate": "moderada",
-        "hetero_high": "alta",
-        "significant": "estatisticamente",
-        "not_significant": "não estatisticamente",
-        "effect_small": "pequeno",
-        "effect_moderate": "moderado",
-        "effect_large": "grande",
-        "effect_very_large": "muito grande",
-        "effect_size_guide": "**Classificação do tamanho de efeito:** d < 0,2 = desprezível; 0,2–0,5 = pequeno; 0,5–0,8 = moderado; > 0,8 = grande.",
-        "forest_explanation": "**Forest Plot:** Cada quadrado representa o tamanho de efeito de um estudo (d de Cohen), com linhas horizontais indicando o intervalo de confiança de 95%. O tamanho do quadrado reflete o peso do estudo na meta-análise. O diamante na parte inferior mostra o efeito combinado e seu intervalo de confiança.",
-        "funnel_explanation": "**Funnel Plot:** Usado para detectar viés de publicação. Na ausência de viés, os estudos devem estar simetricamente distribuídos em torno do efeito combinado. Assimetria pode sugerir estudos faltantes (ex: devido a viés de publicação).",
-        "sensitivity_explanation": "**Análise de Sensibilidade (Leave-One-Out):** Este gráfico mostra o efeito combinado após remover cada estudo um de cada vez. Se o efeito geral mudar substancialmente quando um estudo particular é removido, esse estudo pode ter influência desproporcional nos resultados.",
-        "bar_explanation": "**Gráfico de Barras dos Tamanhos de Efeito:** Exibe o d de Cohen de cada estudo com seu intervalo de confiança de 95%. Isso ajuda a visualizar a variação dos efeitos entre os estudos.",
-        "exclude_label": "Estudos Excluídos",
-        "excluded_note": "Nenhum estudo excluído. Todos selecionados.",
-        "ci_label": "IC: [{:.3f}, {:.3f}]",
-        "leave_one_out_label": "Efeito Combinado Leave-One-Out",
-        "studies_excluded": "Estudos excluídos"
+        "cohen_d_interpret": "**d de Cohen = {:.3f}** – Este é um efeito **{}**. Indica que a intervenção com THC/cannabis melhorou a qualidade do sono em {:.1f} desvios padrão em comparação com o controle/baseline.",
+        "effect_size_small": "pequeno",
+        "effect_size_moderate": "moderado",
+        "effect_size_large": "grande",
+        "i2_interpret": "**I² = {:.1f}%** – Isso indica heterogeneidade **{}**. {}",
+        "heterogeneity_low": "baixa",
+        "heterogeneity_moderate": "moderada",
+        "heterogeneity_high": "alta",
+        "heterogeneity_low_text": "Os estudos são relativamente consistentes, sugerindo que o efeito combinado é confiável.",
+        "heterogeneity_moderate_text": "Há alguma variabilidade entre os estudos, mas o efeito combinado permanece informativo.",
+        "heterogeneity_high_text": "Há variabilidade substancial entre os estudos. Isso pode refletir diferenças nas populações, doses ou medidas de desfecho. Um modelo de efeitos aleatórios foi usado para considerar isso.",
+        "p_value_interpret": "**Valor-p {}** – O resultado é {}.",
+        "p_significant": "estatisticamente significativo (p < 0,05)",
+        "p_not_significant": "não estatisticamente significativo (p ≥ 0,05)",
+        "ci_interpret": "O intervalo de confiança 95% [{:.3f}, {:.3f}] {} contém zero, {}.",
+        "ci_does_not": "não",
+        "ci_does": "sim",
+        "ci_support": "apoiando um efeito significativo",
+        "ci_not_support": "sugerindo que não há efeito significativo",
+        "funnel_interpret": "O gráfico de funil mostra a distribuição dos efeitos dos estudos contra seus erros padrão. Assimetria pode indicar viés de publicação.",
+        "sensitivity_interpret": "Este gráfico mostra o efeito combinado após remover cada estudo um por vez. Se o efeito permanece estável, o resultado é robusto.",
+        "weight_table": "📋 Pesos dos Estudos",
+        "weight_info": "Quadrados maiores indicam maior peso na meta-análise."
     }
 }
 
+# ----------------------------------------------------------------------------
+# 3. FUNÇÕES AUXILIARES
+# ----------------------------------------------------------------------------
 def t(key, **kwargs):
     lang = st.session_state.lang
     text = TEXTS[lang].get(key, TEXTS["en"].get(key, key))
@@ -144,7 +151,7 @@ def fmt_num(value, decimals=3):
     return str(value)
 
 # ----------------------------------------------------------------------------
-# 2. BASE DE DADOS DOS ESTUDOS (10 ESTUDOS)
+# 4. BASE DE DADOS (10 ESTUDOS)
 # ----------------------------------------------------------------------------
 STUDIES = [
     {"id": "Erridge et al. (2026)", "type": "Coorte", "n": 8945, "d": 0.84, "se": 0.009},
@@ -160,7 +167,7 @@ STUDIES = [
 ]
 
 # ----------------------------------------------------------------------------
-# 3. FUNÇÃO DE META-ANÁLISE (DerSimonian-Laird)
+# 5. FUNÇÃO DE META-ANÁLISE (DerSimonian-Laird)
 # ----------------------------------------------------------------------------
 def run_meta_analysis(df):
     if df.empty:
@@ -189,14 +196,22 @@ def run_meta_analysis(df):
     i2 = max(0, ((Q - df_het) / Q) * 100) if Q > 0 else 0
     weights_percent = (w_star / sum_w_star) * 100
     return {
-        "k": k, "pooled_d": pooled_d, "se_pooled": se_pooled,
-        "ci_lb": ci_lb, "ci_ub": ci_ub, "p_val": p_val,
-        "tau2": tau2, "i2": i2, "q": Q, "df": df_het,
-        "weights": weights_percent, "w_star": w_star
+        "k": k,
+        "pooled_d": pooled_d,
+        "se_pooled": se_pooled,
+        "ci_lb": ci_lb,
+        "ci_ub": ci_ub,
+        "p_val": p_val,
+        "tau2": tau2,
+        "i2": i2,
+        "q": Q,
+        "df": df_het,
+        "weights": weights_percent,
+        "w_star": w_star
     }
 
 # ----------------------------------------------------------------------------
-# 4. FUNÇÕES DE GRÁFICOS
+# 6. FUNÇÕES DE GRÁFICOS
 # ----------------------------------------------------------------------------
 def plot_forest(df, results, lang):
     if df.empty or results is None:
@@ -237,130 +252,112 @@ def plot_forest(df, results, lang):
 def plot_funnel(df, results, lang):
     if df.empty or results is None:
         return None
-    fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(8, 6))
     d = df['d'].values
     se = df['se'].values
-    ax.scatter(d, se, color='#1f77b4', edgecolors='black', zorder=5)
-    # Linha do efeito combinado
-    ax.axvline(x=results['pooled_d'], color='red', linestyle='-', linewidth=1.5, alpha=0.6)
-    # Limites do funil (assumindo distribuição normal)
-    x_vals = np.linspace(results['ci_lb'] - 0.5, results['ci_ub'] + 0.5, 100)
-    # Curvas do funil para 95% CI (1.96 * se)
-    se_max = max(se) * 1.5
-    y_vals = np.linspace(0.01, se_max, 100)
-    x_upper = results['pooled_d'] + 1.96 * y_vals
-    x_lower = results['pooled_d'] - 1.96 * y_vals
-    ax.fill_betweenx(y_vals, x_lower, x_upper, color='lightgray', alpha=0.3)
-    ax.invert_yaxis()
+    ax.scatter(d, se, color='#1f77b4', zorder=5, edgecolors='black', linewidth=0.5)
     ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
     ax.set_ylabel("Standard Error" if lang == 'en' else "Erro Padrão", fontsize=10)
-    ax.set_title("Funnel Plot", fontsize=12)
+    ax.set_title("Funnel Plot" if lang == 'en' else "Gráfico de Funil", fontsize=12)
+    # Linha vertical no efeito combinado
+    ax.axvline(x=results['pooled_d'], color='red', linestyle='-', linewidth=1.0, alpha=0.5)
+    # Triângulo esperado (limites)
+    x_limits = np.linspace(results['ci_lb'] - 0.5, results['ci_ub'] + 0.5, 100)
+    y_limits = (np.max(se) / (results['ci_ub'] - results['ci_lb'] + 1)) * np.abs(x_limits - results['pooled_d'])
+    ax.fill_between(x_limits, 0, y_limits, color='gray', alpha=0.1)
+    ax.invert_yaxis()
     ax.grid(True, linestyle='--', alpha=0.3)
     plt.tight_layout()
     return fig
 
 def plot_sensitivity(df, results, lang):
-    if df.empty or results is None or len(df) < 3:
+    if df.empty or results is None or len(df) < 2:
         return None
-    # Leave-one-out
+    # Leave-one-out manual
+    d_orig = results['pooled_d']
     studies = df['id'].tolist()
-    pooled_effects = []
+    d_loo = []
     for i in range(len(df)):
         df_loo = df.drop(i)
         res_loo = run_meta_analysis(df_loo)
-        if res_loo:
-            pooled_effects.append(res_loo['pooled_d'])
-        else:
-            pooled_effects.append(None)
-    # Remover Nones
-    valid = [(s, e) for s, e in zip(studies, pooled_effects) if e is not None]
-    if not valid:
-        return None
-    studies_loo, effects_loo = zip(*valid)
+        d_loo.append(res_loo['pooled_d'] if res_loo else np.nan)
     fig, ax = plt.subplots(figsize=(8, 5))
-    y_pos = np.arange(len(studies_loo))
-    ax.scatter(effects_loo, y_pos, color='#ff7f0e', s=60, edgecolors='black', zorder=5)
-    ax.axvline(x=results['pooled_d'], color='red', linestyle='--', linewidth=1.5, label='Overall effect')
+    y_pos = np.arange(len(studies))
+    ax.scatter(d_loo, y_pos, color='#1f77b4', zorder=5, edgecolors='black', linewidth=0.5)
+    ax.axvline(x=d_orig, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Original pooled d')
     ax.set_yticks(y_pos)
-    ax.set_yticklabels([s for s in studies_loo], fontsize=8)
-    ax.set_xlabel("Pooled Cohen's d (without study)" if lang == 'en' else "d de Cohen combinado (sem estudo)", fontsize=10)
+    ax.set_yticklabels(studies, fontsize=8)
+    ax.set_xlabel("Cohen's d (leave-one-out)" if lang == 'en' else "d de Cohen (leave-one-out)", fontsize=10)
     ax.set_title("Sensitivity Analysis (Leave-One-Out)" if lang == 'en' else "Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
+    ax.grid(True, axis='x', linestyle='--', alpha=0.3)
     ax.legend()
-    ax.grid(True, axis='x', linestyle='--', alpha=0.3)
-    plt.tight_layout()
-    return fig
-
-def plot_bar_effects(df, lang):
-    if df.empty:
-        return None
-    fig, ax = plt.subplots(figsize=(8, 5))
-    df_sorted = df.sort_values('d', ascending=True)
-    y_pos = np.arange(len(df_sorted))
-    d_values = df_sorted['d'].values
-    ci_lower = d_values - 1.96 * df_sorted['se'].values
-    ci_upper = d_values + 1.96 * df_sorted['se'].values
-    ax.barh(y_pos, d_values, xerr=(d_values - ci_lower, ci_upper - d_values), capsize=3, color='#2ca02c', edgecolor='black')
-    ax.axvline(x=0, color='black', linestyle='--', linewidth=0.8)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(df_sorted['id'].tolist(), fontsize=8)
-    ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
-    ax.set_title("Effect Sizes with 95% CI" if lang == 'en' else "Tamanhos de Efeito com IC 95%", fontsize=12)
-    ax.grid(True, axis='x', linestyle='--', alpha=0.3)
     plt.tight_layout()
     return fig
 
 # ----------------------------------------------------------------------------
-# 5. FUNÇÃO PARA INTERPRETAÇÃO
+# 7. FUNÇÃO DE INTERPRETAÇÃO
 # ----------------------------------------------------------------------------
 def interpret_results(results, lang):
     if results is None:
-        return ""
+        return "No results to interpret."
+    
     d = results['pooled_d']
-    i2 = results['i2']
+    ci_lb = results['ci_lb']
+    ci_ub = results['ci_ub']
     p = results['p_val']
-    # Classificação do d de Cohen
+    i2 = results['i2']
+    
+    # Efeito do Cohen's d
     if abs(d) < 0.2:
-        effect_size_text = t('effect_small') + " (negligible)" if lang == 'en' else t('effect_small') + " (desprezível)"
-        effect_desc = "small"
+        effect_desc = t('effect_size_small')
+        effect_size_text = "small"
     elif abs(d) < 0.5:
-        effect_size_text = t('effect_small')
-        effect_desc = "small"
-    elif abs(d) < 0.8:
-        effect_size_text = t('effect_moderate')
-        effect_desc = "moderate"
-    elif abs(d) < 1.3:
-        effect_size_text = t('effect_large')
-        effect_desc = "large"
+        effect_desc = t('effect_size_moderate')
+        effect_size_text = "moderate"
     else:
-        effect_size_text = t('effect_very_large')
-        effect_desc = "very large"
+        effect_desc = t('effect_size_large')
+        effect_size_text = "large"
+    
+    cohen_line = t('cohen_d_interpret').format(d, effect_desc, abs(d))
+    
     # Heterogeneidade
     if i2 < 25:
-        hetero_text = t('hetero_low')
+        het_desc = t('heterogeneity_low')
+        het_text = t('heterogeneity_low_text')
     elif i2 < 50:
-        hetero_text = t('hetero_moderate')
+        het_desc = t('heterogeneity_moderate')
+        het_text = t('heterogeneity_moderate_text')
     else:
-        hetero_text = t('hetero_high')
-    # Significância
+        het_desc = t('heterogeneity_high')
+        het_text = t('heterogeneity_high_text')
+    
+    i2_line = t('i2_interpret').format(i2, het_desc, het_text)
+    
+    # Valor-p
     if p < 0.05:
-        sig_text = t('significant')
+        p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_significant'))
     else:
-        sig_text = t('not_significant')
+        p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_not_significant'))
     
-    cohen_line = t('cohen_d_interpret', d).format(d, effect_desc, effect_size_text)
-    i2_line = t('i2_interpret', i2).format(i2, hetero_text)
-    p_line = t('p_value_interpret', p).format(fmt_num(p, 3), sig_text)
-    guide_line = t('effect_size_guide')
+    # Intervalo de Confiança
+    if ci_lb < 0 < ci_ub:
+        ci_does = t('ci_does')
+        ci_support_text = t('ci_not_support')
+    else:
+        ci_does = t('ci_does_not')
+        ci_support_text = t('ci_support')
     
-    return f"{cohen_line}\n\n{i2_line}\n\n{p_line}\n\n{guide_line}"
+    ci_line = t('ci_interpret').format(ci_lb, ci_ub, ci_does, ci_support_text)
+    
+    interpretation = f"{cohen_line}\n\n{i2_line}\n\n{p_line}\n\n{ci_line}"
+    return interpretation
 
 # ----------------------------------------------------------------------------
-# 6. INTERFACE STREAMLIT
+# 8. INTERFACE PRINCIPAL
 # ----------------------------------------------------------------------------
 def main():
     lang = st.session_state.lang
     
-    # Sidebar
     with st.sidebar:
         st.header(t('lang_label'))
         lang_choice = st.radio(
@@ -380,12 +377,10 @@ def main():
         st.subheader(t('info_sidebar'))
         st.info(t('sidebar_text') + f" **{lang.upper()}**")
         st.caption("Developed for academic research purposes.")
-        
         st.divider()
         st.subheader(t('method_title'))
         st.markdown(t('method_text', q=0.0))
     
-    # Título principal
     st.title(t('title'))
     st.caption(t('subtitle'))
     
@@ -394,7 +389,7 @@ def main():
     # --------------------------------------------------------------------
     df_studies = pd.DataFrame(STUDIES)
     
-    # Inicializar estados (Pakdee desmarcado)
+    # Inicializa estados (Pakdee desmarcado por padrão)
     for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
         if key not in st.session_state:
@@ -405,6 +400,7 @@ def main():
     
     st.subheader(t('select_studies'))
     
+    # Cabeçalho
     col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
     col1.markdown("<div style='text-align: center; font-weight: bold;'>" + t('include') + "</div>", unsafe_allow_html=True)
     col2.markdown("<div style='text-align: left; font-weight: bold;'>" + t('study') + "</div>", unsafe_allow_html=True)
@@ -422,7 +418,10 @@ def main():
             selected_ids.append(idx)
         col2.write(row['id'])
         col3.write(row['type'])
-        col4.write(f"{row['n']:,}")
+        if lang == 'pt':
+            col4.write(f"{row['n']:,}".replace(",", "."))
+        else:
+            col4.write(f"{row['n']:,}")
         col5.write(fmt_num(row['d'], 2))
         col6.write(fmt_num(row['se'], 3))
     
@@ -430,7 +429,7 @@ def main():
     st.caption(f"**{len(df_selected)}** de **{len(df_studies)}** estudos selecionados.")
     
     # --------------------------------------------------------------------
-    # EXECUTAR META-ANÁLISE
+    # META-ANÁLISE
     # --------------------------------------------------------------------
     if len(df_selected) >= 2:
         results = run_meta_analysis(df_selected)
@@ -439,16 +438,13 @@ def main():
         st.warning("Selecione pelo menos **2 estudos** para realizar a meta-análise.")
     
     if results:
-        # Atualizar sidebar com resultados atuais
+        # Atualizar sidebar com resultados
         with st.sidebar:
             st.subheader("📊 Current Results")
             st.metric(t('q_stat'), f"{fmt_num(results['q'], 2)}")
             st.metric(t('i2'), f"{fmt_num(results['i2'], 1)} %")
             st.metric(t('tau2'), f"{fmt_num(results['tau2'], 4)}")
         
-        # --------------------------------------------------------------------
-        # RESULTADOS PRINCIPAIS E INTERPRETAÇÃO
-        # --------------------------------------------------------------------
         st.divider()
         st.subheader(t('results'))
         
@@ -467,15 +463,9 @@ def main():
         with col4:
             st.metric(label=t('i2'), value=f"{fmt_num(results['i2'], 1)} %")
         
-        # Interpretação
+        # Tabela de Pesos
         st.divider()
-        st.subheader(t('interpretation_title'))
-        interpretation = interpret_results(results, lang)
-        st.markdown(interpretation)
-        
-        # Tabela de pesos
-        st.divider()
-        st.subheader("📋 Study Weights")
+        st.subheader(t('weight_table'))
         df_weights = df_selected.copy()
         df_weights['Weight (%)'] = [fmt_num(w, 2) for w in results['weights']]
         rename_map = {
@@ -487,53 +477,46 @@ def main():
             'Weight (%)': t('weight')
         }
         df_display = df_weights[['id', 'type', 'n', 'd', 'se', 'Weight (%)']].rename(columns=rename_map)
-        # Formatação
-        df_display[t('n')] = df_display[t('n')].apply(lambda x: f"{x:,}")
+        if lang == 'pt':
+            df_display[t('n')] = df_display[t('n')].apply(lambda x: f"{x:,}".replace(",", "."))
+        else:
+            df_display[t('n')] = df_display[t('n')].apply(lambda x: f"{x:,}")
         df_display[t('d')] = df_display[t('d')].apply(lambda x: fmt_num(x, 2))
         df_display[t('se')] = df_display[t('se')].apply(lambda x: fmt_num(x, 3))
-        
         st.dataframe(df_display, use_container_width=True)
+        st.caption(t('weight_info'))
         
         # --------------------------------------------------------------------
-        # GRÁFICOS E EXPLICAÇÕES
+        # GRÁFICOS
         # --------------------------------------------------------------------
-        # 1. Forest Plot
         st.divider()
         st.subheader(t('forest_plot'))
         fig_forest = plot_forest(df_selected, results, lang)
         if fig_forest:
             st.pyplot(fig_forest)
             st.caption(t('download_hint'))
-        st.markdown(t('forest_explanation'))
         
-        # 2. Funnel Plot
         st.divider()
         st.subheader(t('funnel_plot'))
         fig_funnel = plot_funnel(df_selected, results, lang)
         if fig_funnel:
             st.pyplot(fig_funnel)
-            st.caption(t('download_hint'))
-        st.markdown(t('funnel_explanation'))
+            st.caption(t('funnel_interpret'))
         
-        # 3. Bar Plot
-        st.divider()
-        st.subheader(t('bar_plot'))
-        fig_bar = plot_bar_effects(df_selected, lang)
-        if fig_bar:
-            st.pyplot(fig_bar)
-            st.caption(t('download_hint'))
-        st.markdown(t('bar_explanation'))
-        
-        # 4. Sensitivity Plot (Leave-One-Out)
         st.divider()
         st.subheader(t('sensitivity_plot'))
         fig_sens = plot_sensitivity(df_selected, results, lang)
         if fig_sens:
             st.pyplot(fig_sens)
-            st.caption(t('download_hint'))
-            st.markdown(t('sensitivity_explanation'))
-        else:
-            st.info("Precisa de pelo menos 3 estudos para análise de sensibilidade." if lang == 'en' else "Precisa de pelo menos 3 estudos para análise de sensibilidade.")
+            st.caption(t('sensitivity_interpret'))
+        
+        # --------------------------------------------------------------------
+        # INTERPRETAÇÃO
+        # --------------------------------------------------------------------
+        st.divider()
+        st.subheader(t('interpretation_title'))
+        interpretation_text = interpret_results(results, lang)
+        st.markdown(interpretation_text)
     
     else:
         st.info("👈 Selecione mais estudos na tabela acima.")
