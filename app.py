@@ -11,12 +11,11 @@ import textwrap
 # ----------------------------------------------------------------------------
 st.set_page_config(page_title="Meta-Analysis App - Sleep & Cannabis", layout="wide")
 
-# Inicializa o estado do idioma
 if 'lang' not in st.session_state:
     st.session_state.lang = 'en'
 
 # ----------------------------------------------------------------------------
-# 2. DICIONÁRIO DE TRADUÇÃO (com textos de interpretação)
+# 2. DICIONÁRIO DE TRADUÇÃO
 # ----------------------------------------------------------------------------
 TEXTS = {
     "en": {
@@ -53,7 +52,7 @@ TEXTS = {
         "effect_size_small": "small",
         "effect_size_moderate": "moderate",
         "effect_size_large": "large",
-        "i2_interpret": "**I² = {:.1f}%** – This indicates **{} heterogeneity**. {}",
+        "i2_interpret": "**I² = {:.1f}%** – This indicates **{}** heterogeneity. {}",
         "heterogeneity_low": "low",
         "heterogeneity_moderate": "moderate",
         "heterogeneity_high": "high",
@@ -273,14 +272,17 @@ def plot_funnel(df, results, lang):
 def plot_sensitivity(df, results, lang):
     if df.empty or results is None or len(df) < 2:
         return None
-    # Leave-one-out manual
     d_orig = results['pooled_d']
     studies = df['id'].tolist()
     d_loo = []
     for i in range(len(df)):
-        df_loo = df.drop(i)
+        # CORREÇÃO: usar df.index[i] para pegar o índice real
+        df_loo = df.drop(df.index[i])
         res_loo = run_meta_analysis(df_loo)
-        d_loo.append(res_loo['pooled_d'] if res_loo else np.nan)
+        if res_loo is not None:
+            d_loo.append(res_loo['pooled_d'])
+        else:
+            d_loo.append(np.nan)
     fig, ax = plt.subplots(figsize=(8, 5))
     y_pos = np.arange(len(studies))
     ax.scatter(d_loo, y_pos, color='#1f77b4', zorder=5, edgecolors='black', linewidth=0.5)
@@ -307,20 +309,15 @@ def interpret_results(results, lang):
     p = results['p_val']
     i2 = results['i2']
     
-    # Efeito do Cohen's d
     if abs(d) < 0.2:
         effect_desc = t('effect_size_small')
-        effect_size_text = "small"
     elif abs(d) < 0.5:
         effect_desc = t('effect_size_moderate')
-        effect_size_text = "moderate"
     else:
         effect_desc = t('effect_size_large')
-        effect_size_text = "large"
     
     cohen_line = t('cohen_d_interpret').format(d, effect_desc, abs(d))
     
-    # Heterogeneidade
     if i2 < 25:
         het_desc = t('heterogeneity_low')
         het_text = t('heterogeneity_low_text')
@@ -330,27 +327,22 @@ def interpret_results(results, lang):
     else:
         het_desc = t('heterogeneity_high')
         het_text = t('heterogeneity_high_text')
-    
     i2_line = t('i2_interpret').format(i2, het_desc, het_text)
     
-    # Valor-p
     if p < 0.05:
         p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_significant'))
     else:
         p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_not_significant'))
     
-    # Intervalo de Confiança
     if ci_lb < 0 < ci_ub:
         ci_does = t('ci_does')
         ci_support_text = t('ci_not_support')
     else:
         ci_does = t('ci_does_not')
         ci_support_text = t('ci_support')
-    
     ci_line = t('ci_interpret').format(ci_lb, ci_ub, ci_does, ci_support_text)
     
-    interpretation = f"{cohen_line}\n\n{i2_line}\n\n{p_line}\n\n{ci_line}"
-    return interpretation
+    return f"{cohen_line}\n\n{i2_line}\n\n{p_line}\n\n{ci_line}"
 
 # ----------------------------------------------------------------------------
 # 8. INTERFACE PRINCIPAL
@@ -389,7 +381,6 @@ def main():
     # --------------------------------------------------------------------
     df_studies = pd.DataFrame(STUDIES)
     
-    # Inicializa estados (Pakdee desmarcado por padrão)
     for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
         if key not in st.session_state:
@@ -400,7 +391,6 @@ def main():
     
     st.subheader(t('select_studies'))
     
-    # Cabeçalho
     col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
     col1.markdown("<div style='text-align: center; font-weight: bold;'>" + t('include') + "</div>", unsafe_allow_html=True)
     col2.markdown("<div style='text-align: left; font-weight: bold;'>" + t('study') + "</div>", unsafe_allow_html=True)
@@ -438,7 +428,6 @@ def main():
         st.warning("Selecione pelo menos **2 estudos** para realizar a meta-análise.")
     
     if results:
-        # Atualizar sidebar com resultados
         with st.sidebar:
             st.subheader("📊 Current Results")
             st.metric(t('q_stat'), f"{fmt_num(results['q'], 2)}")
