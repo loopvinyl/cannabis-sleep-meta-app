@@ -15,7 +15,7 @@ if 'lang' not in st.session_state:
     st.session_state.lang = 'en'
 
 # ----------------------------------------------------------------------------
-# 2. DICIONÁRIO DE TRADUÇÃO
+# 2. DICIONÁRIO DE TRADUÇÃO (COMPLETO)
 # ----------------------------------------------------------------------------
 TEXTS = {
     "en": {
@@ -27,6 +27,8 @@ TEXTS = {
         "include": "Include",
         "study": "Study",
         "type": "Type",
+        "type_cohort": "Cohort",
+        "type_rct": "RCT",
         "n": "N",
         "d": "Cohen's d",
         "se": "Std. Error",
@@ -70,7 +72,9 @@ TEXTS = {
         "funnel_interpret": "The funnel plot shows the distribution of study effects against their standard errors. Asymmetry may indicate publication bias.",
         "sensitivity_interpret": "This plot shows the pooled effect after removing each study one at a time. If the effect remains stable, the result is robust.",
         "weight_table": "📋 Study Weights",
-        "weight_info": "Larger squares indicate greater weight in the meta-analysis."
+        "weight_info": "Larger squares indicate greater weight in the meta-analysis.",
+        "select_warning": "Select at least **2 studies** to run the meta-analysis.",
+        "select_info": "👈 Select more studies in the table above."
     },
     "pt": {
         "title": "🗂️ Meta-Análise Interativa: THC/Cannabis & Sono",
@@ -81,6 +85,8 @@ TEXTS = {
         "include": "Incluir",
         "study": "Estudo",
         "type": "Tipo",
+        "type_cohort": "Coorte",
+        "type_rct": "ECR",
         "n": "N",
         "d": "d de Cohen",
         "se": "Erro Padrão",
@@ -124,7 +130,9 @@ TEXTS = {
         "funnel_interpret": "O gráfico de funil mostra a distribuição dos efeitos dos estudos contra seus erros padrão. Assimetria pode indicar viés de publicação.",
         "sensitivity_interpret": "Este gráfico mostra o efeito combinado após remover cada estudo um por vez. Se o efeito permanece estável, o resultado é robusto.",
         "weight_table": "📋 Pesos dos Estudos",
-        "weight_info": "Quadrados maiores indicam maior peso na meta-análise."
+        "weight_info": "Quadrados maiores indicam maior peso na meta-análise.",
+        "select_warning": "Selecione pelo menos **2 estudos** para realizar a meta-análise.",
+        "select_info": "👈 Selecione mais estudos na tabela acima."
     }
 }
 
@@ -210,7 +218,7 @@ def run_meta_analysis(df):
     }
 
 # ----------------------------------------------------------------------------
-# 6. FUNÇÕES DE GRÁFICOS
+# 6. FUNÇÕES DE GRÁFICOS (com tradução)
 # ----------------------------------------------------------------------------
 def plot_forest(df, results, lang):
     if df.empty or results is None:
@@ -234,14 +242,14 @@ def plot_forest(df, results, lang):
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
-    ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
-    ax.set_title("Forest Plot", fontsize=12)
+    ax.set_xlabel(t('d'), fontsize=10)
+    ax.set_title(t('forest_plot'), fontsize=12)
     diamond_y = -0.5
     diamond_x = results['pooled_d']
     ax.plot([results['ci_lb'], diamond_x, results['ci_ub'], diamond_x, results['ci_lb']],
             [diamond_y, diamond_y - 0.2, diamond_y, diamond_y + 0.2, diamond_y],
             color='red', linewidth=2)
-    ax.text(diamond_x, diamond_y - 0.5, 
+    ax.text(diamond_x, diamond_y - 0.5,
             f"Pooled: {fmt_num(results['pooled_d'], 3)} [{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]",
             ha='center', fontsize=9, color='red', fontweight='bold')
     ax.grid(True, axis='x', linestyle='--', alpha=0.3)
@@ -255,12 +263,10 @@ def plot_funnel(df, results, lang):
     d = df['d'].values
     se = df['se'].values
     ax.scatter(d, se, color='#1f77b4', zorder=5, edgecolors='black', linewidth=0.5)
-    ax.set_xlabel("Cohen's d" if lang == 'en' else "d de Cohen", fontsize=10)
-    ax.set_ylabel("Standard Error" if lang == 'en' else "Erro Padrão", fontsize=10)
-    ax.set_title("Funnel Plot" if lang == 'en' else "Gráfico de Funil", fontsize=12)
-    # Linha vertical no efeito combinado
+    ax.set_xlabel(t('d'), fontsize=10)
+    ax.set_ylabel(t('se'), fontsize=10)
+    ax.set_title(t('funnel_plot'), fontsize=12)
     ax.axvline(x=results['pooled_d'], color='red', linestyle='-', linewidth=1.0, alpha=0.5)
-    # Triângulo esperado (limites)
     x_limits = np.linspace(results['ci_lb'] - 0.5, results['ci_ub'] + 0.5, 100)
     y_limits = (np.max(se) / (results['ci_ub'] - results['ci_lb'] + 1)) * np.abs(x_limits - results['pooled_d'])
     ax.fill_between(x_limits, 0, y_limits, color='gray', alpha=0.1)
@@ -276,7 +282,6 @@ def plot_sensitivity(df, results, lang):
     studies = df['id'].tolist()
     d_loo = []
     for i in range(len(df)):
-        # CORREÇÃO: usar df.index[i] para pegar o índice real
         df_loo = df.drop(df.index[i])
         res_loo = run_meta_analysis(df_loo)
         if res_loo is not None:
@@ -289,35 +294,31 @@ def plot_sensitivity(df, results, lang):
     ax.axvline(x=d_orig, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Original pooled d')
     ax.set_yticks(y_pos)
     ax.set_yticklabels(studies, fontsize=8)
-    ax.set_xlabel("Cohen's d (leave-one-out)" if lang == 'en' else "d de Cohen (leave-one-out)", fontsize=10)
-    ax.set_title("Sensitivity Analysis (Leave-One-Out)" if lang == 'en' else "Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
+    ax.set_xlabel(t('d'), fontsize=10)
+    ax.set_title(t('sensitivity_plot'), fontsize=12)
     ax.grid(True, axis='x', linestyle='--', alpha=0.3)
     ax.legend()
     plt.tight_layout()
     return fig
 
 # ----------------------------------------------------------------------------
-# 7. FUNÇÃO DE INTERPRETAÇÃO
+# 7. FUNÇÃO DE INTERPRETAÇÃO (já totalmente traduzida via t())
 # ----------------------------------------------------------------------------
 def interpret_results(results, lang):
     if results is None:
         return "No results to interpret."
-    
     d = results['pooled_d']
     ci_lb = results['ci_lb']
     ci_ub = results['ci_ub']
     p = results['p_val']
     i2 = results['i2']
-    
     if abs(d) < 0.2:
         effect_desc = t('effect_size_small')
     elif abs(d) < 0.5:
         effect_desc = t('effect_size_moderate')
     else:
         effect_desc = t('effect_size_large')
-    
     cohen_line = t('cohen_d_interpret').format(d, effect_desc, abs(d))
-    
     if i2 < 25:
         het_desc = t('heterogeneity_low')
         het_text = t('heterogeneity_low_text')
@@ -328,12 +329,10 @@ def interpret_results(results, lang):
         het_desc = t('heterogeneity_high')
         het_text = t('heterogeneity_high_text')
     i2_line = t('i2_interpret').format(i2, het_desc, het_text)
-    
     if p < 0.05:
         p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_significant'))
     else:
         p_line = t('p_value_interpret').format(f"= {fmt_num(p, 3)}", t('p_not_significant'))
-    
     if ci_lb < 0 < ci_ub:
         ci_does = t('ci_does')
         ci_support_text = t('ci_not_support')
@@ -341,7 +340,6 @@ def interpret_results(results, lang):
         ci_does = t('ci_does_not')
         ci_support_text = t('ci_support')
     ci_line = t('ci_interpret').format(ci_lb, ci_ub, ci_does, ci_support_text)
-    
     return f"{cohen_line}\n\n{i2_line}\n\n{p_line}\n\n{ci_line}"
 
 # ----------------------------------------------------------------------------
@@ -349,7 +347,7 @@ def interpret_results(results, lang):
 # ----------------------------------------------------------------------------
 def main():
     lang = st.session_state.lang
-    
+
     with st.sidebar:
         st.header(t('lang_label'))
         lang_choice = st.radio(
@@ -364,7 +362,7 @@ def main():
         elif lang_choice == "English" and lang != "en":
             st.session_state.lang = "en"
             st.rerun()
-        
+
         st.divider()
         st.subheader(t('info_sidebar'))
         st.info(t('sidebar_text') + f" **{lang.upper()}**")
@@ -372,15 +370,15 @@ def main():
         st.divider()
         st.subheader(t('method_title'))
         st.markdown(t('method_text', q=0.0))
-    
+
     st.title(t('title'))
     st.caption(t('subtitle'))
-    
+
     # --------------------------------------------------------------------
     # SELEÇÃO DE ESTUDOS
     # --------------------------------------------------------------------
     df_studies = pd.DataFrame(STUDIES)
-    
+
     for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
         if key not in st.session_state:
@@ -388,9 +386,10 @@ def main():
                 st.session_state[key] = False
             else:
                 st.session_state[key] = True
-    
+
     st.subheader(t('select_studies'))
-    
+
+    # Cabeçalho com tradução
     col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
     col1.markdown("<div style='text-align: center; font-weight: bold;'>" + t('include') + "</div>", unsafe_allow_html=True)
     col2.markdown("<div style='text-align: left; font-weight: bold;'>" + t('study') + "</div>", unsafe_allow_html=True)
@@ -398,7 +397,7 @@ def main():
     col4.markdown("<div style='text-align: center; font-weight: bold;'>" + t('n') + "</div>", unsafe_allow_html=True)
     col5.markdown("<div style='text-align: center; font-weight: bold;'>" + t('d') + "</div>", unsafe_allow_html=True)
     col6.markdown("<div style='text-align: center; font-weight: bold;'>" + t('se') + "</div>", unsafe_allow_html=True)
-    
+
     selected_ids = []
     for idx, row in df_studies.iterrows():
         key = f"include_{idx}"
@@ -406,18 +405,27 @@ def main():
         checked = col1.checkbox(label="", value=st.session_state[key], key=key, label_visibility="collapsed")
         if checked:
             selected_ids.append(idx)
+
+        # Traduzir o tipo do estudo
+        if row['type'] == "Coorte":
+            tipo_traduzido = t('type_cohort')
+        elif row['type'] == "RCT":
+            tipo_traduzido = t('type_rct')
+        else:
+            tipo_traduzido = row['type']
+
         col2.write(row['id'])
-        col3.write(row['type'])
+        col3.write(tipo_traduzido)
         if lang == 'pt':
             col4.write(f"{row['n']:,}".replace(",", "."))
         else:
             col4.write(f"{row['n']:,}")
         col5.write(fmt_num(row['d'], 2))
         col6.write(fmt_num(row['se'], 3))
-    
+
     df_selected = df_studies.loc[selected_ids].copy()
     st.caption(f"**{len(df_selected)}** de **{len(df_studies)}** estudos selecionados.")
-    
+
     # --------------------------------------------------------------------
     # META-ANÁLISE
     # --------------------------------------------------------------------
@@ -425,18 +433,18 @@ def main():
         results = run_meta_analysis(df_selected)
     else:
         results = None
-        st.warning("Selecione pelo menos **2 estudos** para realizar a meta-análise.")
-    
+        st.warning(t('select_warning'))
+
     if results:
         with st.sidebar:
             st.subheader("📊 Current Results")
             st.metric(t('q_stat'), f"{fmt_num(results['q'], 2)}")
             st.metric(t('i2'), f"{fmt_num(results['i2'], 1)} %")
             st.metric(t('tau2'), f"{fmt_num(results['tau2'], 4)}")
-        
+
         st.divider()
         st.subheader(t('results'))
-        
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric(label=t('pooled_effect'), value=fmt_num(results['pooled_d'], 3))
@@ -451,17 +459,17 @@ def main():
             st.metric(label=t('p_value'), value=p_text)
         with col4:
             st.metric(label=t('i2'), value=f"{fmt_num(results['i2'], 1)} %")
-        
+
         # Tabela de Pesos
         st.divider()
         st.subheader(t('weight_table'))
         df_weights = df_selected.copy()
         df_weights['Weight (%)'] = [fmt_num(w, 2) for w in results['weights']]
         rename_map = {
-            'id': t('study'), 
-            'type': t('type'), 
-            'n': t('n'), 
-            'd': t('d'), 
+            'id': t('study'),
+            'type': t('type'),
+            'n': t('n'),
+            'd': t('d'),
             'se': t('se'),
             'Weight (%)': t('weight')
         }
@@ -474,7 +482,7 @@ def main():
         df_display[t('se')] = df_display[t('se')].apply(lambda x: fmt_num(x, 3))
         st.dataframe(df_display, use_container_width=True)
         st.caption(t('weight_info'))
-        
+
         # --------------------------------------------------------------------
         # GRÁFICOS
         # --------------------------------------------------------------------
@@ -484,21 +492,21 @@ def main():
         if fig_forest:
             st.pyplot(fig_forest)
             st.caption(t('download_hint'))
-        
+
         st.divider()
         st.subheader(t('funnel_plot'))
         fig_funnel = plot_funnel(df_selected, results, lang)
         if fig_funnel:
             st.pyplot(fig_funnel)
             st.caption(t('funnel_interpret'))
-        
+
         st.divider()
         st.subheader(t('sensitivity_plot'))
         fig_sens = plot_sensitivity(df_selected, results, lang)
         if fig_sens:
             st.pyplot(fig_sens)
             st.caption(t('sensitivity_interpret'))
-        
+
         # --------------------------------------------------------------------
         # INTERPRETAÇÃO
         # --------------------------------------------------------------------
@@ -506,9 +514,9 @@ def main():
         st.subheader(t('interpretation_title'))
         interpretation_text = interpret_results(results, lang)
         st.markdown(interpretation_text)
-    
+
     else:
-        st.info("👈 Selecione mais estudos na tabela acima.")
+        st.info(t('select_info'))
 
 if __name__ == "__main__":
     main()
