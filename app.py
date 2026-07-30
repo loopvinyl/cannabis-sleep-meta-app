@@ -263,6 +263,9 @@ def main():
         df_studies = pd.DataFrame(STUDIES)
         st.subheader("📊 Select Studies to Include")
 
+        # === LEGENDA DOS TIPOS DE ESTUDO (INGLÊS) ===
+        st.caption("**RCT** = Randomized Controlled Trial (gold standard, participants are randomly assigned); **Cohort** = Observational study (participants are followed without controlled intervention).")
+
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
         col1.markdown("<div style='text-align: center; font-weight: bold;'>Include</div>", unsafe_allow_html=True)
         col2.markdown("<div style='text-align: left; font-weight: bold;'>Study</div>", unsafe_allow_html=True)
@@ -304,8 +307,6 @@ def main():
 
             st.divider()
             st.subheader("📈 Meta-Analysis Results")
-
-            # Explicação inicial sobre os resultados
             st.markdown("""
             **What do these numbers mean?**  
             - **Pooled Effect (d):** The average effect across all selected studies.  
@@ -322,8 +323,6 @@ def main():
 
             st.divider()
             st.subheader("📋 Study Weights")
-
-            # Explicação sobre a tabela de pesos
             st.markdown("""
             **What are study weights?**  
             Studies with smaller error bars (more precise estimates) get more weight in the final average. Larger squares in the Forest Plot correspond to higher weights.
@@ -388,6 +387,9 @@ def main():
         df_studies = pd.DataFrame(STUDIES)
         st.subheader("📊 Selecione os Estudos para Incluir")
 
+        # === LEGENDA DOS TIPOS DE ESTUDO (PORTUGUÊS) ===
+        st.caption("**ECR** = Ensaio Clínico Randomizado (padrão ouro, participantes são sorteados); **Coorte** = Estudo observacional (participantes são acompanhados sem intervenção controlada).")
+
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
         col1.markdown("<div style='text-align: center; font-weight: bold;'>Incluir</div>", unsafe_allow_html=True)
         col2.markdown("<div style='text-align: left; font-weight: bold;'>Estudo</div>", unsafe_allow_html=True)
@@ -431,8 +433,6 @@ def main():
 
             st.divider()
             st.subheader("📈 Resultados da Meta-Análise")
-
-            # Explicação inicial sobre os resultados (em português)
             st.markdown("""
             **O que significam esses números?**  
             - **Efeito Combinado (d):** A média dos efeitos de todos os estudos selecionados.  
@@ -449,8 +449,6 @@ def main():
 
             st.divider()
             st.subheader("📋 Pesos dos Estudos")
-
-            # Explicação sobre a tabela de pesos (em português)
             st.markdown("""
             **O que são os pesos dos estudos?**  
             Estudos com barras de erro menores (estimativas mais precisas) recebem mais peso na média final. Quadrados maiores no Forest Plot correspondem a pesos maiores.
