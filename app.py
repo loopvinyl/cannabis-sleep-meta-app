@@ -17,6 +17,7 @@ if "lang" not in st.session_state:
 # 2. FUNÇÕES COMPARTILHADAS
 # ----------------------------------------------------------------------------
 def fmt_num(value, decimals=3):
+    """Formata números com vírgula decimal no PT e ponto no EN."""
     lang = st.session_state.lang
     if value is None:
         return "N/A"
@@ -28,6 +29,7 @@ def fmt_num(value, decimals=3):
     return str(value)
 
 def run_meta_analysis(df):
+    """Executa o modelo de efeitos aleatórios de DerSimonian-Laird."""
     if df.empty:
         return None
     d = df["d"].values
@@ -69,6 +71,7 @@ def run_meta_analysis(df):
     }
 
 def plot_forest(df, results):
+    """Forest Plot com textos traduzidos e números formatados."""
     if df.empty or results is None:
         return None
     lang = st.session_state.lang
@@ -124,6 +127,7 @@ def plot_forest(df, results):
     return fig
 
 def plot_funnel(df, results):
+    """Funnel Plot com textos traduzidos."""
     if df.empty or results is None:
         return None
     lang = st.session_state.lang
@@ -153,6 +157,7 @@ def plot_funnel(df, results):
     return fig
 
 def plot_sensitivity(df, results):
+    """Sensitivity Plot com textos traduzidos."""
     if df.empty or results is None or len(df) < 2:
         return None
     lang = st.session_state.lang
@@ -186,6 +191,113 @@ def plot_sensitivity(df, results):
     ax.legend()
     plt.tight_layout()
     return fig
+
+def render_comparator(results, lang, df_selected):
+    """
+    Renderiza a tabela comparativa "Sua Dose Atual vs. Estudos".
+    """
+    # Inicializa os estados dos inputs do comparador
+    if "comp_thc_conc" not in st.session_state:
+        st.session_state.comp_thc_conc = 32.0
+    if "comp_quantity" not in st.session_state:
+        st.session_state.comp_quantity = 0.05
+
+    st.markdown("---")
+    with st.expander("📊 Sua Dose Atual vs. Estudos" if lang == "pt" else "📊 Your Current Dose vs. Studies"):
+        # Explicação inicial (neutra e clínica)
+        if lang == "pt":
+            st.markdown("""
+            Compare a quantidade de THC que você utiliza atualmente com as doses empregadas nos estudos científicos 
+            incluídos nesta meta-análise. Preencha os dados do seu produto abaixo.
+            """)
+        else:
+            st.markdown("""
+            Compare the amount of THC you currently use with the doses employed in the scientific studies 
+            included in this meta-analysis. Fill in your product data below.
+            """)
+
+        # Inputs do usuário
+        col1, col2 = st.columns(2)
+        with col1:
+            thc_conc = st.number_input(
+                "THC (%)" if lang == "pt" else "THC (%)",
+                min_value=0.0, max_value=100.0, value=st.session_state.comp_thc_conc, step=0.5,
+                key="comp_thc_conc_input",
+                help="Concentração de THC no seu produto (ex: 32%)" if lang == "pt" else "THC concentration in your product (e.g., 32%)"
+            )
+            st.session_state.comp_thc_conc = thc_conc
+        with col2:
+            quantity = st.number_input(
+                "Quantidade diária (g)" if lang == "pt" else "Daily amount (g)",
+                min_value=0.001, max_value=10.0, value=st.session_state.comp_quantity, step=0.001, format="%.3f",
+                key="comp_quantity_input",
+                help="Quantidade do produto que você usa por dia (ex: 0.05g)" if lang == "pt" else "Amount of product you use per day (e.g., 0.05g)"
+            )
+            st.session_state.comp_quantity = quantity
+
+        if thc_conc > 0 and quantity > 0:
+            # Cálculo do THC ingerido
+            thc_mg_per_g = thc_conc * 10  # 32% = 320 mg/g
+            user_thc_mg = thc_mg_per_g * quantity
+
+            st.markdown("---")
+            st.markdown(f"**🧪 {fmt_num(user_thc_mg, 1)} mg** de THC por dia." if lang == "pt" else f"**🧪 {fmt_num(user_thc_mg, 1)} mg** of THC per day.")
+
+            # Montar dados da tabela
+            dados_tabela = []
+
+            # Linha do usuário (sempre a primeira) - com destaque visual
+            dados_tabela.append({
+                "Fonte" if lang == "pt" else "Source": "🟢 **" + ("Sua Dose Atual" if lang == "pt" else "Your Current Dose") + "**",
+                "Dose (mg)" if lang == "pt" else "Dose (mg)": f"{user_thc_mg:.1f}",
+                "Comparação" if lang == "pt" else "Comparison": "🔹 " + ("(Referência)" if lang == "pt" else "(Reference)")
+            })
+
+            # Estudos de referência (com valores fixos e faixas)
+            estudos_ref = [
+                {"nome": "Pakdee et al. (2026)", "dose": 2.5, "tipo": "fixa", "desc": "Dose baixa (óleo Tailândia)"},
+                {"nome": "Ried et al. (2023)", "dose": 15.0, "tipo": "fixa", "desc": "Dose moderada (óleo Entoura)"},
+                {"nome": "Montebello et al. (2022)", "dose_min": 11.0, "dose_max": 19.0, "tipo": "faixa", "desc": "Nabiximols spray 1:1"},
+                {"nome": "UK Registries (média)", "dose": 20.0, "tipo": "fixa", "desc": "Datta, Erridge, Vivek"},
+                {"nome": "Erridge et al. (2026)", "dose": 60.0, "tipo": "fixa", "desc": "Dose alta (24 meses)"},
+            ]
+
+            for estudo in estudos_ref:
+                if estudo["tipo"] == "fixa":
+                    dose_float = estudo["dose"]
+                    if abs(dose_float - user_thc_mg) < 1.0:
+                        comparacao = "✅ " + ("Muito Próxima" if lang == "pt" else "Very Close")
+                    elif dose_float > user_thc_mg:
+                        comparacao = "⬆️ " + ("Maior" if lang == "pt" else "Higher") + " (" + ("sua dose é menor" if lang == "pt" else "your dose is lower") + ")"
+                    else:
+                        comparacao = "⬇️ " + ("Menor" if lang == "pt" else "Lower") + " (" + ("sua dose é maior" if lang == "pt" else "your dose is higher") + ")"
+                    dose_str = f"{dose_float:.1f}"
+                else:  # faixa
+                    if estudo["dose_min"] <= user_thc_mg <= estudo["dose_max"]:
+                        comparacao = "✅ " + ("Dentro da Faixa" if lang == "pt" else "Within Range")
+                    elif user_thc_mg < estudo["dose_min"]:
+                        comparacao = "⬆️ " + ("Abaixo da Faixa" if lang == "pt" else "Below Range")
+                    else:
+                        comparacao = "⬇️ " + ("Acima da Faixa" if lang == "pt" else "Above Range")
+                    dose_str = f"{estudo['dose_min']:.1f} – {estudo['dose_max']:.1f}"
+
+                dados_tabela.append({
+                    "Fonte" if lang == "pt" else "Source": estudo["nome"] + " (" + estudo["desc"] + ")",
+                    "Dose (mg)" if lang == "pt" else "Dose (mg)": dose_str,
+                    "Comparação" if lang == "pt" else "Comparison": comparacao
+                })
+
+            # Exibir tabela
+            df_tabela = pd.DataFrame(dados_tabela)
+            st.dataframe(df_tabela, use_container_width=True, hide_index=True)
+
+            # Interpretação simples e ética
+            if lang == "pt":
+                st.caption("💡 Esta comparação mostra onde sua dose atual se posiciona em relação à literatura científica. Não recomendamos alterações na dose sem orientação médica.")
+            else:
+                st.caption("💡 This comparison shows where your current dose stands relative to the scientific literature. We do not recommend dose changes without medical supervision.")
+        else:
+            st.info("👈 Insira a concentração e a quantidade diária para ver a comparação." if lang == "pt" else "👈 Enter the concentration and daily amount to see the comparison.")
 
 # ----------------------------------------------------------------------------
 # 3. BASE DE DADOS (10 ESTUDOS)
@@ -361,7 +473,7 @@ def main():
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
-            # --- INTERPRETAÇÃO DINÂMICA (INGLÊS) - CORRIGIDA ---
+            # --- INTERPRETAÇÃO DINÂMICA (INGLÊS) ---
             d = results["pooled_d"]
             i2 = results["i2"]
             p = results["p_val"]
@@ -383,6 +495,10 @@ def main():
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significant' if p < 0.05 else 'Not significant'} (p < 0.05).")
             contains_zero = "does" if ci_lb < 0 < ci_ub else "does not"
             st.markdown(f"95% CI [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contain zero.")
+
+            # ===== COMPARADOR (INGLÊS) =====
+            render_comparator(results, lang, df_selected)
+
         else:
             st.info("👈 Select more studies.")
 
@@ -504,7 +620,7 @@ def main():
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
-            # --- INTERPRETAÇÃO DINÂMICA (PORTUGUÊS) - CORRIGIDA ---
+            # --- INTERPRETAÇÃO DINÂMICA (PORTUGUÊS) ---
             d = results["pooled_d"]
             i2 = results["i2"]
             p = results["p_val"]
@@ -526,6 +642,10 @@ def main():
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significativo' if p < 0.05 else 'Não significativo'} (p < 0,05).")
             contains_zero = "sim" if ci_lb < 0 < ci_ub else "não"
             st.markdown(f"IC 95% [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contém zero.")
+
+            # ===== COMPARADOR (PORTUGUÊS) =====
+            render_comparator(results, lang, df_selected)
+
         else:
             st.info("👈 Selecione mais estudos.")
 
