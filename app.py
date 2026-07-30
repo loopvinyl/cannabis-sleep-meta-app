@@ -232,7 +232,7 @@ def render_comparator(results, lang, df_selected):
 
     # --- NOVAS INICIALIZAÇÕES PARA O MODO CONCENTRADO (mg por serving) ---
     if "comp_concentrate_mode_idx" not in st.session_state:
-        st.session_state["comp_concentrate_mode_idx"] = 0   # 0 = %, 1 = mg/serving
+        st.session_state["comp_concentrate_mode_idx"] = 0   # 0 = mg/serving (padrão), 1 = %
     if "comp_thc_mg_per_serving" not in st.session_state:
         st.session_state["comp_thc_mg_per_serving"] = 340.0
     if "comp_serving_size_g" not in st.session_state:
@@ -384,24 +384,24 @@ def render_comparator(results, lang, df_selected):
     # INPUTS PARA CONCENTRADO/RESINA (agora por último) - VERSÃO MODIFICADA
     # ======================================================================
     else:  # concentrado
-        # Modo de entrada: % ou mg por serving
+        # Modo de entrada: mg por serving (padrão) ou %
         mode = st.radio(
             "Modo de concentração" if lang == "pt" else "Concentration mode",
             options=[
-                "Porcentagem (%)" if lang == "pt" else "Percentage (%)",
-                "mg por serving" if lang == "pt" else "mg per serving"
+                "mg por serving" if lang == "pt" else "mg per serving",
+                "Porcentagem (%)" if lang == "pt" else "Percentage (%)"
             ],
             key="comp_concentrate_mode",
             horizontal=True,
             index=st.session_state["comp_concentrate_mode_idx"]
         )
         # Atualiza o índice no estado
-        if mode.startswith("Porcentagem") or mode.startswith("Percentage"):
+        if mode.startswith("mg"):
             st.session_state["comp_concentrate_mode_idx"] = 0
-            modo_percentual = True
+            modo_percentual = False
         else:
             st.session_state["comp_concentrate_mode_idx"] = 1
-            modo_percentual = False
+            modo_percentual = True
 
         # Variáveis que serão preenchidas nos dois modos
         thc_conc = 0.0
