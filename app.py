@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
+import matplotlib.ticker as ticker
 
 # ----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO INICIAL
@@ -90,7 +91,8 @@ def plot_forest(df, results):
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
-    # Título e rótulo traduzidos
+
+    # Formatação do eixo X com vírgula decimal no PT
     if lang == "en":
         ax.set_xlabel("Cohen's d", fontsize=10)
         ax.set_title("Forest Plot", fontsize=12)
@@ -99,6 +101,9 @@ def plot_forest(df, results):
         ax.set_xlabel("d de Cohen", fontsize=10)
         ax.set_title("Gráfico de Floresta", fontsize=12)
         label_pooled = "Combinado"
+        # Aplica formatação personalizada no eixo X
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
+
     # Diamante do efeito combinado
     diamond_y = -0.5
     diamond_x = results["pooled_d"]
@@ -129,6 +134,7 @@ def plot_funnel(df, results):
     d = df["d"].values
     se = df["se"].values
     ax.scatter(d, se, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
+
     if lang == "en":
         ax.set_xlabel("Cohen's d", fontsize=10)
         ax.set_ylabel("Standard Error", fontsize=10)
@@ -137,6 +143,10 @@ def plot_funnel(df, results):
         ax.set_xlabel("d de Cohen", fontsize=10)
         ax.set_ylabel("Erro Padrão", fontsize=10)
         ax.set_title("Gráfico de Funil (Viés de Publicação)", fontsize=12)
+        # Aplica formatação personalizada nos eixos
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
+        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, p: fmt_num(y, 2)))
+
     ax.axvline(x=results["pooled_d"], color="red", linestyle="-", linewidth=1.0, alpha=0.5)
     x_limits = np.linspace(results["ci_lb"] - 0.5, results["ci_ub"] + 0.5, 100)
     y_limits = (np.max(se) / (results["ci_ub"] - results["ci_lb"] + 1)) * np.abs(x_limits - results["pooled_d"])
@@ -163,6 +173,7 @@ def plot_sensitivity(df, results):
     fig, ax = plt.subplots(figsize=(8, 5))
     y_pos = np.arange(len(studies))
     ax.scatter(d_loo, y_pos, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
+
     if lang == "en":
         ax.set_xlabel("Cohen's d (leave-one-out)", fontsize=10)
         ax.set_title("Sensitivity Analysis (Leave-One-Out)", fontsize=12)
@@ -171,6 +182,9 @@ def plot_sensitivity(df, results):
         ax.set_xlabel("d de Cohen (leave-one-out)", fontsize=10)
         ax.set_title("Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
         ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="d combinado original")
+        # Aplica formatação personalizada no eixo X
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
+
     ax.set_yticks(y_pos)
     ax.set_yticklabels(studies, fontsize=8)
     ax.grid(True, axis="x", linestyle="--", alpha=0.3)
