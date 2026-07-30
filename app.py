@@ -197,7 +197,7 @@ def render_comparator(results, lang, df_selected):
     Renderiza a tabela comparativa "Sua Dose Atual vs. Estudos".
     Suporta concentrados (em g com %) e óleos (em mL com mg/mL).
     Inclui THC, CBD e outros canabinoides (opcionais).
-    Inclui coluna de THC biodisponível estimado.
+    Desdobra estudos com vias mistas em linhas separadas.
     """
     # Inicializa os estados dos inputs
     if "comp_product_type" not in st.session_state:
@@ -289,7 +289,11 @@ def render_comparator(results, lang, df_selected):
                 dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
                 dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_conc > 0 else None
                 dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_conc > 0 else None
-                produto_tipo_label = "Concentrado/Resina" if lang == "pt" else "Concentrate/Resin"
+                # Rótulo da via para o produto do usuário
+                if lang == "pt":
+                    produto_tipo_label = "Inalado (vaporizado/dabbing)"
+                else:
+                    produto_tipo_label = "Inhaled (vaporized/dabbing)"
                 bio_factor = 0.55  # Inalação
         else:
             # Óleo/Tintura
@@ -334,7 +338,10 @@ def render_comparator(results, lang, df_selected):
                 dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
                 dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_mg_ml > 0 else None
                 dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_mg_ml > 0 else None
-                produto_tipo_label = "Óleo/Tintura" if lang == "pt" else "Oil/Tincture"
+                if lang == "pt":
+                    produto_tipo_label = "Oral (sublingual)"
+                else:
+                    produto_tipo_label = "Oral (sublingual)"
                 bio_factor = 0.12  # Sublingual/oral
 
         st.markdown("---")
@@ -376,13 +383,18 @@ def render_comparator(results, lang, df_selected):
             }
             dados_tabela.append(user_row)
 
-            # Estudos de referência (com valores fixos e faixas) - incluindo a formulação e biodisponibilidade
+            # Estudos de referência - AGORA COM VIAS DESDOBRADAS
             estudos_ref = [
-                {"nome": "Pakdee et al. (2026)", "thc": 2.5, "cbd": None, "tipo": "fixa", "desc": "Dose baixa", "formulacao": "Óleo sublingual", "bio": 0.12},
-                {"nome": "Ried et al. (2023)", "thc": 15.0, "cbd": 22.5, "tipo": "fixa", "desc": "Dose moderada", "formulacao": "Óleo sublingual (Entoura 10:15)", "bio": 0.12},
-                {"nome": "Montebello et al. (2022)", "thc_min": 11.0, "thc_max": 19.0, "cbd": None, "tipo": "faixa", "desc": "Spray 1:1", "formulacao": "Spray oromucosal (Nabiximols)", "bio": 0.35},
-                {"nome": "UK Registries (média)", "thc": 20.0, "cbd": None, "tipo": "fixa", "desc": "Média UK", "formulacao": "Óleos/Flores (variado)", "bio": 0.30},
-                {"nome": "Erridge et al. (2026)", "thc": 60.0, "cbd": None, "tipo": "fixa", "desc": "Dose alta (24m)", "formulacao": "Óleos/Flores (variado)", "bio": 0.30},
+                # Estudos com via única
+                {"nome": "Pakdee et al. (2026)", "thc": 2.5, "cbd": None, "tipo": "fixa", "desc": "Dose baixa", "formulacao": "Oral (sublingual)", "bio": 0.12},
+                {"nome": "Ried et al. (2023)", "thc": 15.0, "cbd": 22.5, "tipo": "fixa", "desc": "Dose moderada", "formulacao": "Oral (sublingual)", "bio": 0.12},
+                {"nome": "Montebello et al. (2022)", "thc_min": 11.0, "thc_max": 19.0, "cbd": None, "tipo": "faixa", "desc": "Spray 1:1", "formulacao": "Oromucosal (spray)", "bio": 0.35},
+                # UK Registries - desdobrado em duas vias
+                {"nome": "UK Registries (média) – Óleo", "thc": 20.0, "cbd": None, "tipo": "fixa", "desc": "Média UK", "formulacao": "Oral (sublingual)", "bio": 0.12},
+                {"nome": "UK Registries (média) – Flor", "thc": 20.0, "cbd": None, "tipo": "fixa", "desc": "Média UK", "formulacao": "Inalado (flor)", "bio": 0.55},
+                # Erridge - desdobrado em duas vias
+                {"nome": "Erridge et al. (2026) – Óleo", "thc": 60.0, "cbd": None, "tipo": "fixa", "desc": "Dose alta (24m)", "formulacao": "Oral (sublingual)", "bio": 0.12},
+                {"nome": "Erridge et al. (2026) – Flor", "thc": 60.0, "cbd": None, "tipo": "fixa", "desc": "Dose alta (24m)", "formulacao": "Inalado (flor)", "bio": 0.55},
             ]
 
             for estudo in estudos_ref:
@@ -398,7 +410,7 @@ def render_comparator(results, lang, df_selected):
                     thc_str = f"{thc_dose:.1f}"
                     bio_thc_str = f"{bio_thc:.1f}"
                     cbd_str = f"{estudo['cbd']:.1f}" if estudo.get('cbd') else "—"
-                else:  # faixa
+                else:  # faixa (Montebello)
                     thc_min = estudo["thc_min"]
                     thc_max = estudo["thc_max"]
                     bio_thc_min = thc_min * estudo["bio"]
@@ -413,22 +425,11 @@ def render_comparator(results, lang, df_selected):
                     bio_thc_str = f"{bio_thc_min:.1f} – {bio_thc_max:.1f}"
                     cbd_str = "—"
 
-                # Formatação do nome da formulação (traduzido)
-                if lang == "pt":
-                    formulacao_label = estudo["formulacao"]
-                else:
-                    # Mapeamento simples para inglês
-                    if "Óleo sublingual" in estudo["formulacao"]:
-                        formulacao_label = "Sublingual oil"
-                    elif "Spray oromucosal" in estudo["formulacao"]:
-                        formulacao_label = "Oromucosal spray"
-                    elif "Óleos/Flores" in estudo["formulacao"]:
-                        formulacao_label = "Oils/Flowers (varied)"
-                    else:
-                        formulacao_label = estudo["formulacao"]
+                # Formatação do nome da formulação (já está em português/inglês conforme definido)
+                formulacao_label = estudo["formulacao"]
 
                 row = {
-                    "Fonte" if lang == "pt" else "Source": estudo["nome"] + " (" + estudo["desc"] + ")",
+                    "Fonte" if lang == "pt" else "Source": estudo["nome"] + (" (" + estudo["desc"] + ")" if estudo["desc"] else ""),
                     "Formulação/Via" if lang == "pt" else "Formulation/Route": formulacao_label,
                     "THC (mg)" if lang == "pt" else "THC (mg)": thc_str,
                     "THC biodisponível (mg)" if lang == "pt" else "Bioavailable THC (mg)": bio_thc_str,
