@@ -262,8 +262,6 @@ def main():
 
         df_studies = pd.DataFrame(STUDIES)
         st.subheader("📊 Select Studies to Include")
-
-        # === LEGENDA DOS TIPOS DE ESTUDO (INGLÊS) ===
         st.caption("**RCT** = Randomized Controlled Trial (gold standard, participants are randomly assigned); **Cohort** = Observational study (participants are followed without controlled intervention).")
 
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -363,6 +361,13 @@ def main():
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
+            # --- NOVA EXPLICAÇÃO AMIGÁVEL SOBRE COHEN'S D (INGLÊS) ---
+            st.markdown("""
+            **What does "d = 0.787 – Large effect. Sleep improved by 0.8 SD" mean?**  
+            - **d (Cohen's d)** is a measure that shows how much the treatment improved sleep compared to the control.  
+            - **0.8** means the improvement was large (equivalent to nearly 1 standard deviation).  
+            - In practice, this indicates that patients who used THC/cannabis had a **clinically relevant** improvement in sleep quality – not just a statistical one.
+            """)
             d = results["pooled_d"]
             effect_desc = "small" if abs(d) < 0.2 else "moderate" if abs(d) < 0.5 else "large"
             st.markdown(f"**d = {d:.3f}** – **{effect_desc}** effect. Sleep improved by {abs(d):.1f} SD.")
@@ -386,8 +391,6 @@ def main():
 
         df_studies = pd.DataFrame(STUDIES)
         st.subheader("📊 Selecione os Estudos para Incluir")
-
-        # === LEGENDA DOS TIPOS DE ESTUDO (PORTUGUÊS) ===
         st.caption("**ECR** = Ensaio Clínico Randomizado (padrão ouro, participantes são sorteados); **Coorte** = Estudo observacional (participantes são acompanhados sem intervenção controlada).")
 
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -497,6 +500,13 @@ def main():
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
+            # --- NOVA EXPLICAÇÃO AMIGÁVEL SOBRE COHEN'S D (PORTUGUÊS) ---
+            st.markdown("""
+            **O que significa "d = 0,787 – Efeito grande. Sono melhorou em 0,8 DP"?**  
+            - **d (Cohen's d)** é uma medida que mostra o quanto o tratamento melhorou o sono em comparação com o controle.  
+            - **0,8** significa que a melhora foi grande (equivalente a quase 1 desvio padrão).  
+            - Na prática, isso indica que os pacientes que usaram THC/cannabis tiveram uma **melhora clinicamente relevante** na qualidade do sono, não apenas estatística.
+            """)
             d = results["pooled_d"]
             effect_desc = "pequeno" if abs(d) < 0.2 else "moderado" if abs(d) < 0.5 else "grande"
             st.markdown(f"**d = {d:.3f}** – Efeito **{effect_desc}**. Sono melhorou em {abs(d):.1f} DP.")
