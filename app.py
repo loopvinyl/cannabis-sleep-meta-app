@@ -244,6 +244,9 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
+            # Garantir que a chave existe (fallback)
+            if key not in st.session_state:
+                st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
@@ -347,6 +350,9 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
+            # Garantir que a chave existe (fallback)
+            if key not in st.session_state:
+                st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
