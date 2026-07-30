@@ -16,7 +16,6 @@ if "lang" not in st.session_state:
 # 2. FUNÇÕES COMPARTILHADAS
 # ----------------------------------------------------------------------------
 def fmt_num(value, decimals=3):
-    """Formata números com vírgula decimal no PT e ponto no EN."""
     lang = st.session_state.lang
     if value is None:
         return "N/A"
@@ -69,10 +68,8 @@ def run_meta_analysis(df):
     }
 
 def plot_forest(df, results):
-    """Forest Plot com textos traduzidos e números formatados."""
     if df.empty or results is None:
         return None
-    lang = st.session_state.lang
     fig, ax = plt.subplots(figsize=(10, 6))
     df_sorted = df.copy()
     df_sorted["weight"] = results["weights"]
@@ -92,16 +89,8 @@ def plot_forest(df, results):
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
-    # Rótulos traduzidos
-    if lang == "en":
-        ax.set_xlabel("Cohen's d", fontsize=10)
-        ax.set_title("Forest Plot", fontsize=12)
-        label_pooled = "Pooled"
-    else:
-        ax.set_xlabel("d de Cohen", fontsize=10)
-        ax.set_title("Forest Plot", fontsize=12)
-        label_pooled = "Combinado"
-    # Diamante do efeito combinado com números formatados
+    ax.set_xlabel("Cohen's d" if st.session_state.lang == "en" else "d de Cohen", fontsize=10)
+    ax.set_title("Forest Plot", fontsize=12)
     diamond_y = -0.5
     diamond_x = results["pooled_d"]
     ax.plot(
@@ -113,7 +102,7 @@ def plot_forest(df, results):
     ax.text(
         diamond_x,
         diamond_y - 0.5,
-        f"{label_pooled}: {fmt_num(results['pooled_d'], 3)} [{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]",
+        f"Pooled: {fmt_num(results['pooled_d'], 3)} [{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]",
         ha="center",
         fontsize=9,
         color="red",
@@ -124,23 +113,15 @@ def plot_forest(df, results):
     return fig
 
 def plot_funnel(df, results):
-    """Funnel Plot com textos traduzidos."""
     if df.empty or results is None:
         return None
-    lang = st.session_state.lang
     fig, ax = plt.subplots(figsize=(8, 6))
     d = df["d"].values
     se = df["se"].values
     ax.scatter(d, se, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
-    # Rótulos traduzidos
-    if lang == "en":
-        ax.set_xlabel("Cohen's d", fontsize=10)
-        ax.set_ylabel("Standard Error", fontsize=10)
-        ax.set_title("Funnel Plot", fontsize=12)
-    else:
-        ax.set_xlabel("d de Cohen", fontsize=10)
-        ax.set_ylabel("Erro Padrão", fontsize=10)
-        ax.set_title("Gráfico de Funil", fontsize=12)
+    ax.set_xlabel("Cohen's d" if st.session_state.lang == "en" else "d de Cohen", fontsize=10)
+    ax.set_ylabel("Standard Error" if st.session_state.lang == "en" else "Erro Padrão", fontsize=10)
+    ax.set_title("Funnel Plot", fontsize=12)
     ax.axvline(x=results["pooled_d"], color="red", linestyle="-", linewidth=1.0, alpha=0.5)
     x_limits = np.linspace(results["ci_lb"] - 0.5, results["ci_ub"] + 0.5, 100)
     y_limits = (np.max(se) / (results["ci_ub"] - results["ci_lb"] + 1)) * np.abs(x_limits - results["pooled_d"])
@@ -151,10 +132,8 @@ def plot_funnel(df, results):
     return fig
 
 def plot_sensitivity(df, results):
-    """Sensitivity Plot com textos traduzidos."""
     if df.empty or results is None or len(df) < 2:
         return None
-    lang = st.session_state.lang
     d_orig = results["pooled_d"]
     studies = df["id"].tolist()
     d_loo = []
@@ -168,17 +147,11 @@ def plot_sensitivity(df, results):
     fig, ax = plt.subplots(figsize=(8, 5))
     y_pos = np.arange(len(studies))
     ax.scatter(d_loo, y_pos, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
-    # Rótulos traduzidos
-    if lang == "en":
-        ax.set_xlabel("Cohen's d (leave-one-out)", fontsize=10)
-        ax.set_title("Sensitivity Analysis (Leave-One-Out)", fontsize=12)
-        ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="Original pooled d")
-    else:
-        ax.set_xlabel("d de Cohen (leave-one-out)", fontsize=10)
-        ax.set_title("Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
-        ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="d combinado original")
+    ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="Original pooled d")
     ax.set_yticks(y_pos)
     ax.set_yticklabels(studies, fontsize=8)
+    ax.set_xlabel("Cohen's d (leave-one-out)" if st.session_state.lang == "en" else "d de Cohen (leave-one-out)", fontsize=10)
+    ax.set_title("Sensitivity Analysis (Leave-One-Out)" if st.session_state.lang == "en" else "Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
     ax.grid(True, axis="x", linestyle="--", alpha=0.3)
     ax.legend()
     plt.tight_layout()
@@ -207,12 +180,12 @@ def main():
     lang = st.session_state.lang
 
     # ======================================================================
-    # INICIALIZAÇÃO ÚNICA DOS CHECKBOXES (TODOS MARCADOS)
+    # INICIALIZAÇÃO DOS CHECKBOXES (TODOS MARCADOS, INCLUSIVE PAKDEE)
     # ======================================================================
     if "initialized" not in st.session_state:
         for idx in range(len(STUDIES)):
             key = f"include_{idx}"
-            st.session_state[key] = True
+            st.session_state[key] = True  # Todos começam marcados
         st.session_state.initialized = True
 
     # ======================================================================
@@ -271,6 +244,9 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
+            # Garantir que a chave existe (fallback)
+            if key not in st.session_state:
+                st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
@@ -374,6 +350,9 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
+            # Garantir que a chave existe (fallback)
+            if key not in st.session_state:
+                st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
