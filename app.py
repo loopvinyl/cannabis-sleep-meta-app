@@ -264,43 +264,33 @@ def render_comparator(results, lang, df_selected):
         """)
 
     # NOVA ORDEM: Gomas, Óleo, Resina (esquerda → direita)
-    # Definir as opções de acordo com o idioma
+    # Definir as opções como tuplas (valor, rótulo)
     if lang == "pt":
         options = [
-            "Gomas/Comestíveis (unidades)",
-            "Óleo/Tintura (mL)",
-            "Concentrado/Resina (g)"
+            ("gummy", "Gomas/Comestíveis (unidades)"),
+            ("oleo", "Óleo/Tintura (mL)"),
+            ("concentrado", "Concentrado/Resina (g)")
         ]
     else:
         options = [
-            "Gummies/Edibles (pieces)",
-            "Oil/Tincture (mL)",
-            "Concentrate/Resin (g)"
+            ("gummy", "Gummies/Edibles (pieces)"),
+            ("oleo", "Oil/Tincture (mL)"),
+            ("concentrado", "Concentrate/Resin (g)")
         ]
 
     # Índice baseado no tipo atual
     tipo_atual = st.session_state.comp_product_type
-    if tipo_atual == "gummy":
-        default_index = 0
-    elif tipo_atual == "oleo":
-        default_index = 1
-    else:
-        default_index = 2
+    default_index = 0 if tipo_atual == "gummy" else 1 if tipo_atual == "oleo" else 2
 
-    # Função para atualizar o tipo com base no valor do radio (que é o texto)
+    # Função para atualizar comp_product_type com o valor selecionado
     def on_product_type_change():
-        selected_text = st.session_state.product_type_radio
-        if "Gomas" in selected_text or "Gummies" in selected_text:
-            st.session_state.comp_product_type = "gummy"
-        elif "Óleo" in selected_text or "Oil" in selected_text:
-            st.session_state.comp_product_type = "oleo"
-        else:
-            st.session_state.comp_product_type = "concentrado"
+        st.session_state.comp_product_type = st.session_state.product_type_radio
 
-    # Radio com chave para manter estado e on_change para sincronizar
+    # Radio com valores estáveis
     st.radio(
         "Tipo de produto" if lang == "pt" else "Product type",
-        options=options,
+        options=[opt[0] for opt in options],          # apenas os valores
+        format_func=lambda v: next(opt[1] for opt in options if opt[0] == v),  # rótulo
         index=default_index,
         horizontal=True,
         key="product_type_radio",
