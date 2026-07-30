@@ -371,7 +371,7 @@ def main():
             het_desc = "low" if i2 < 25 else "moderate" if i2 < 50 else "high"
             
             st.markdown(f"""
-            **Cohen's d = {d:.3f}** – This means the treatment improved sleep by **{abs(d):.1f} standard deviations** compared to the control.  
+            **Cohen's d = {fmt_num(d, 3)}** – This means the treatment improved sleep by **{abs(d):.1f} standard deviations** compared to the control.  
             This is a **{effect_desc}** effect, indicating a **{'clinically relevant' if abs(d) >= 0.5 else 'modest'}** improvement in sleep quality.
             
             **What does this mean in practice?**  
@@ -379,7 +379,7 @@ def main():
             - **d ≈ 0.5:** Moderate effect (clearly noticeable).  
             - **d ≥ 0.8:** Large effect (substantial and clinically meaningful).
             """)
-            st.markdown(f"**I² = {i2:.1f}%** – **{het_desc}** heterogeneity.")
+            st.markdown(f"**I² = {fmt_num(i2, 1)}%** – **{het_desc}** heterogeneity.")
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significant' if p < 0.05 else 'Not significant'} (p < 0.05).")
             contains_zero = "does" if ci_lb < 0 < ci_ub else "does not"
             st.markdown(f"95% CI [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contain zero.")
@@ -514,7 +514,7 @@ def main():
             het_desc = "baixa" if i2 < 25 else "moderada" if i2 < 50 else "alta"
             
             st.markdown(f"""
-            **d de Cohen = {d:.3f}** – Isso significa que o tratamento melhorou o sono em **{abs(d):.1f} desvios padrão** em comparação com o controle.  
+            **d de Cohen = {fmt_num(d, 3)}** – Isso significa que o tratamento melhorou o sono em **{abs(d):.1f} desvios padrão** em comparação com o controle.  
             Este é um efeito **{effect_desc}**, indicando uma melhora **{'clinicamente relevante' if abs(d) >= 0.5 else 'modesta'}** na qualidade do sono.
 
             **O que isso significa na prática?**  
@@ -522,7 +522,7 @@ def main():
             - **d ≈ 0,5:** Efeito moderado (claramente perceptível).  
             - **d ≥ 0,8:** Efeito grande (substancial e clinicamente significativo).
             """)
-            st.markdown(f"**I² = {i2:.1f}%** – Heterogeneidade **{het_desc}**.")
+            st.markdown(f"**I² = {fmt_num(i2, 1)}%** – Heterogeneidade **{het_desc}**.")
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significativo' if p < 0.05 else 'Não significativo'} (p < 0,05).")
             contains_zero = "sim" if ci_lb < 0 < ci_ub else "não"
             st.markdown(f"IC 95% [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contém zero.")
