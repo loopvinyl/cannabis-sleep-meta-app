@@ -174,28 +174,22 @@ STUDIES = [
 ]
 
 # ----------------------------------------------------------------------------
-# 4. INTERFACE PRINCIPAL (COM INICIALIZAÇÃO ROBUSTA)
+# 4. INTERFACE PRINCIPAL
 # ----------------------------------------------------------------------------
 def main():
     lang = st.session_state.lang
 
     # ======================================================================
-    # INICIALIZAÇÃO ÚNICA DOS CHECKBOXES (CORREÇÃO DO PROBLEMA)
+    # INICIALIZAÇÃO DOS CHECKBOXES (TODOS MARCADOS, INCLUSIVE PAKDEE)
     # ======================================================================
-    # A flag "initialized" garante que os valores padrão sejam setados
-    # APENAS UMA VEZ, no primeiro carregamento do app.
     if "initialized" not in st.session_state:
-        for idx, row in enumerate(STUDIES):
+        for idx in range(len(STUDIES)):
             key = f"include_{idx}"
-            # Pakdee (índice 1) começa desmarcado por ser outlier
-            if row["id"] == "Pakdee, Sribunrieng e Poowanna (2026)":
-                st.session_state[key] = False
-            else:
-                st.session_state[key] = True
+            st.session_state[key] = True  # Todos começam marcados
         st.session_state.initialized = True
 
     # ======================================================================
-    # SIDEBAR (seletor de idioma)
+    # SIDEBAR
     # ======================================================================
     with st.sidebar:
         st.header("Language / Idioma")
@@ -214,7 +208,6 @@ def main():
 
         st.divider()
 
-        # Informações (traduzidas manualmente)
         if lang == "en":
             st.subheader("ℹ️ About this App")
             st.info("Select/deselect studies to see the pooled effect change. Uses Random-Effects (DL).\n\nFormatted for: **EN**")
@@ -231,7 +224,7 @@ def main():
             st.markdown("Modelo de efeitos aleatórios **DerSimonian-Laird (DL)**.\n\nPesos = variância intra + variância entre estudos (Tau²).")
 
     # ======================================================================
-    # CORPO DO APP (INGLÊS)
+    # CORPO (INGLÊS)
     # ======================================================================
     if lang == "en":
         st.title("🗂️ Interactive Meta-Analysis: THC/Cannabis & Sleep")
@@ -334,7 +327,7 @@ def main():
             st.info("👈 Select more studies.")
 
     # ======================================================================
-    # CORPO DO APP (PORTUGUÊS)
+    # CORPO (PORTUGUÊS)
     # ======================================================================
     else:
         st.title("🗂️ Meta-Análise Interativa: THC/Cannabis & Sono")
@@ -358,7 +351,7 @@ def main():
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
                 selected_ids.append(idx)
-            
+
             tipo_traduzido = "Coorte" if row["type"] == "Coorte" else "ECR"
             c2.write(row["id"])
             c3.write(tipo_traduzido)
