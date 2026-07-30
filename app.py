@@ -273,17 +273,6 @@ def render_comparator(results, lang, df_selected):
             "Concentrate/Resin (g)"
         ]
 
-    # Função para atualizar o tipo com base na opção selecionada
-    def on_product_type_change():
-        # O valor selecionado está em st.session_state._product_type_temp
-        selected = st.session_state._product_type_temp
-        if "Gomas" in selected or "Gummies" in selected:
-            st.session_state.comp_product_type = "gummy"
-        elif "Óleo" in selected or "Oil" in selected:
-            st.session_state.comp_product_type = "oleo"
-        else:
-            st.session_state.comp_product_type = "concentrado"
-
     # Índice baseado no tipo atual
     tipo_atual = st.session_state.comp_product_type
     if tipo_atual == "gummy":
@@ -293,16 +282,22 @@ def render_comparator(results, lang, df_selected):
     else:
         default_index = 2
 
-    # Radio sem key, usando on_change para atualizar o estado
-    st.radio(
+    # Radio que retorna o texto selecionado (sem key, sem on_change)
+    selected_text = st.radio(
         "Tipo de produto" if lang == "pt" else "Product type",
         options=options,
         index=default_index,
         horizontal=True,
-        key="_product_type_temp",
-        on_change=on_product_type_change,
         label_visibility="visible"
     )
+
+    # Atualiza o tipo interno com base no texto selecionado
+    if "Gomas" in selected_text or "Gummies" in selected_text:
+        st.session_state.comp_product_type = "gummy"
+    elif "Óleo" in selected_text or "Oil" in selected_text:
+        st.session_state.comp_product_type = "oleo"
+    else:
+        st.session_state.comp_product_type = "concentrado"
 
     # ======================================================================
     # INPUTS PARA GOMAS/COMESTÍVEIS (agora primeiro)
