@@ -361,18 +361,19 @@ def main():
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
-            # --- NOVA EXPLICAÇÃO AMIGÁVEL SOBRE COHEN'S D (INGLÊS) ---
-            st.markdown("""
-            **What does "d = 0.787 – Large effect. Sleep improved by 0.8 SD" mean?**  
-            - **d (Cohen's d)** is a measure that shows how much the treatment improved sleep compared to the control.  
-            - **0.8** means the improvement was large (equivalent to nearly 1 standard deviation).  
-            - In practice, this indicates that patients who used THC/cannabis had a **clinically relevant** improvement in sleep quality – not just a statistical one.
-            """)
+            # --- INTERPRETAÇÃO DINÂMICA (INGLÊS) ---
             d = results["pooled_d"]
             effect_desc = "small" if abs(d) < 0.2 else "moderate" if abs(d) < 0.5 else "large"
-            st.markdown(f"**d = {d:.3f}** – **{effect_desc}** effect. Sleep improved by {abs(d):.1f} SD.")
-            i2 = results["i2"]
-            het_desc = "low" if i2 < 25 else "moderate" if i2 < 50 else "high"
+            # Frase dinâmica explicando o Cohen's d com o valor atual
+            st.markdown(f"""
+            **Cohen's d = {d:.3f}** – This means the treatment improved sleep by **{abs(d):.1f} standard deviations** compared to the control.  
+            This is a **{effect_desc}** effect, indicating a **{'clinically relevant' if abs(d) >= 0.5 else 'modest'}** improvement in sleep quality.
+            
+            **What does this mean in practice?**  
+            - **d < 0.2:** Small effect (hardly noticeable).  
+            - **d ≈ 0.5:** Moderate effect (clearly noticeable).  
+            - **d ≥ 0.8:** Large effect (substantial and clinically meaningful).
+            """)
             st.markdown(f"**I² = {i2:.1f}%** – **{het_desc}** heterogeneity.")
             p = results["p_val"]
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significant' if p < 0.05 else 'Not significant'} (p < 0.05).")
@@ -500,16 +501,19 @@ def main():
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
-            # --- NOVA EXPLICAÇÃO AMIGÁVEL SOBRE COHEN'S D (PORTUGUÊS) ---
-            st.markdown("""
-            **O que significa "d = 0,787 – Efeito grande. Sono melhorou em 0,8 DP"?**  
-            - **d (Cohen's d)** é uma medida que mostra o quanto o tratamento melhorou o sono em comparação com o controle.  
-            - **0,8** significa que a melhora foi grande (equivalente a quase 1 desvio padrão).  
-            - Na prática, isso indica que os pacientes que usaram THC/cannabis tiveram uma **melhora clinicamente relevante** na qualidade do sono, não apenas estatística.
-            """)
+            # --- INTERPRETAÇÃO DINÂMICA (PORTUGUÊS) ---
             d = results["pooled_d"]
             effect_desc = "pequeno" if abs(d) < 0.2 else "moderado" if abs(d) < 0.5 else "grande"
-            st.markdown(f"**d = {d:.3f}** – Efeito **{effect_desc}**. Sono melhorou em {abs(d):.1f} DP.")
+            # Frase dinâmica explicando o Cohen's d com o valor atual
+            st.markdown(f"""
+            **d de Cohen = {d:.3f}** – Isso significa que o tratamento melhorou o sono em **{abs(d):.1f} desvios padrão** em comparação com o controle.  
+            Este é um efeito **{effect_desc}**, indicando uma melhora **{'clinicamente relevante' if abs(d) >= 0.5 else 'modesta'}** na qualidade do sono.
+
+            **O que isso significa na prática?**  
+            - **d < 0,2:** Efeito pequeno (dificilmente perceptível).  
+            - **d ≈ 0,5:** Efeito moderado (claramente perceptível).  
+            - **d ≥ 0,8:** Efeito grande (substancial e clinicamente significativo).
+            """)
             i2 = results["i2"]
             het_desc = "baixa" if i2 < 25 else "moderada" if i2 < 50 else "alta"
             st.markdown(f"**I² = {i2:.1f}%** – Heterogeneidade **{het_desc}**.")
