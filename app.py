@@ -70,6 +70,7 @@ def run_meta_analysis(df):
 def plot_forest(df, results):
     if df.empty or results is None:
         return None
+    lang = st.session_state.lang
     fig, ax = plt.subplots(figsize=(10, 6))
     df_sorted = df.copy()
     df_sorted["weight"] = results["weights"]
@@ -89,8 +90,16 @@ def plot_forest(df, results):
     x_min = min(-0.5, ci_lower.min() - 0.2) if len(ci_lower) > 0 else -0.5
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
-    ax.set_xlabel("Cohen's d" if st.session_state.lang == "en" else "d de Cohen", fontsize=10)
-    ax.set_title("Forest Plot", fontsize=12)
+    # Título e rótulo traduzidos
+    if lang == "en":
+        ax.set_xlabel("Cohen's d", fontsize=10)
+        ax.set_title("Forest Plot", fontsize=12)
+        label_pooled = "Pooled"
+    else:
+        ax.set_xlabel("d de Cohen", fontsize=10)
+        ax.set_title("Gráfico de Floresta", fontsize=12)
+        label_pooled = "Combinado"
+    # Diamante do efeito combinado
     diamond_y = -0.5
     diamond_x = results["pooled_d"]
     ax.plot(
@@ -102,7 +111,7 @@ def plot_forest(df, results):
     ax.text(
         diamond_x,
         diamond_y - 0.5,
-        f"Pooled: {fmt_num(results['pooled_d'], 3)} [{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]",
+        f"{label_pooled}: {fmt_num(results['pooled_d'], 3)} [{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]",
         ha="center",
         fontsize=9,
         color="red",
@@ -115,13 +124,19 @@ def plot_forest(df, results):
 def plot_funnel(df, results):
     if df.empty or results is None:
         return None
+    lang = st.session_state.lang
     fig, ax = plt.subplots(figsize=(8, 6))
     d = df["d"].values
     se = df["se"].values
     ax.scatter(d, se, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
-    ax.set_xlabel("Cohen's d" if st.session_state.lang == "en" else "d de Cohen", fontsize=10)
-    ax.set_ylabel("Standard Error" if st.session_state.lang == "en" else "Erro Padrão", fontsize=10)
-    ax.set_title("Funnel Plot", fontsize=12)
+    if lang == "en":
+        ax.set_xlabel("Cohen's d", fontsize=10)
+        ax.set_ylabel("Standard Error", fontsize=10)
+        ax.set_title("Funnel Plot", fontsize=12)
+    else:
+        ax.set_xlabel("d de Cohen", fontsize=10)
+        ax.set_ylabel("Erro Padrão", fontsize=10)
+        ax.set_title("Gráfico de Funil (Viés de Publicação)", fontsize=12)
     ax.axvline(x=results["pooled_d"], color="red", linestyle="-", linewidth=1.0, alpha=0.5)
     x_limits = np.linspace(results["ci_lb"] - 0.5, results["ci_ub"] + 0.5, 100)
     y_limits = (np.max(se) / (results["ci_ub"] - results["ci_lb"] + 1)) * np.abs(x_limits - results["pooled_d"])
@@ -134,6 +149,7 @@ def plot_funnel(df, results):
 def plot_sensitivity(df, results):
     if df.empty or results is None or len(df) < 2:
         return None
+    lang = st.session_state.lang
     d_orig = results["pooled_d"]
     studies = df["id"].tolist()
     d_loo = []
@@ -147,11 +163,16 @@ def plot_sensitivity(df, results):
     fig, ax = plt.subplots(figsize=(8, 5))
     y_pos = np.arange(len(studies))
     ax.scatter(d_loo, y_pos, color="#1f77b4", zorder=5, edgecolors="black", linewidth=0.5)
-    ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="Original pooled d")
+    if lang == "en":
+        ax.set_xlabel("Cohen's d (leave-one-out)", fontsize=10)
+        ax.set_title("Sensitivity Analysis (Leave-One-Out)", fontsize=12)
+        ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="Original pooled d")
+    else:
+        ax.set_xlabel("d de Cohen (leave-one-out)", fontsize=10)
+        ax.set_title("Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
+        ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="d combinado original")
     ax.set_yticks(y_pos)
     ax.set_yticklabels(studies, fontsize=8)
-    ax.set_xlabel("Cohen's d (leave-one-out)" if st.session_state.lang == "en" else "d de Cohen (leave-one-out)", fontsize=10)
-    ax.set_title("Sensitivity Analysis (Leave-One-Out)" if st.session_state.lang == "en" else "Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
     ax.grid(True, axis="x", linestyle="--", alpha=0.3)
     ax.legend()
     plt.tight_layout()
@@ -298,6 +319,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Right-click to save.")
+                st.caption("**What this shows:** Each horizontal line represents the confidence interval of a single study. The square's size indicates its weight in the meta-analysis. The red diamond at the bottom shows the overall pooled effect.")
 
             st.divider()
             st.subheader("🔍 Funnel Plot (Publication Bias)")
@@ -305,6 +327,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Asymmetry may indicate publication bias.")
+                st.caption("**What this shows:** Each dot is a study. If the plot is symmetric (like an inverted funnel), it suggests no publication bias. If studies are missing on one side, there might be bias.")
 
             st.divider()
             st.subheader("📉 Sensitivity Analysis (Leave-One-Out)")
@@ -312,6 +335,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("If effect remains stable, result is robust.")
+                st.caption("**What this shows:** Each point shows the pooled effect after removing that study. If all points stay close to the red line, the result is stable and not driven by any single study.")
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
@@ -414,6 +438,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Clique com o direito para salvar.")
+                st.caption("**O que mostra:** Cada linha horizontal é o intervalo de confiança de um estudo. O tamanho do quadrado indica seu peso na meta-análise. O losango vermelho na parte inferior mostra o efeito combinado geral.")
 
             st.divider()
             st.subheader("🔍 Gráfico de Funil (Viés de Publicação)")
@@ -421,6 +446,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Assimetria pode indicar viés de publicação.")
+                st.caption("**O que mostra:** Cada ponto é um estudo. Se o gráfico for simétrico (como um funil invertido), sugere que não há viés de publicação. Se faltarem estudos de um lado, pode haver viés.")
 
             st.divider()
             st.subheader("📉 Análise de Sensibilidade (Leave-One-Out)")
@@ -428,6 +454,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Se o efeito se mantém estável, o resultado é robusto.")
+                st.caption("**O que mostra:** Cada ponto mostra o efeito combinado após remover aquele estudo. Se todos os pontos ficarem próximos da linha vermelha, o resultado é estável e não é influenciado por um único estudo.")
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
