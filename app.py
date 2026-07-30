@@ -200,9 +200,14 @@ def render_comparator(results, lang, df_selected):
     Desdobra estudos com vias mistas em linhas separadas.
     Agora sempre visível (sem expander) e com ordem: Gomas → Óleo → Resina.
     """
+    # --- INICIALIZAÇÃO COM FLAG PARA GARANTIR QUE A PRIMEIRA OPÇÃO SEJA "GUMMY" ---
+    if "comp_initialized" not in st.session_state:
+        st.session_state.comp_product_type = "gummy"
+        st.session_state.comp_initialized = True
+
     # Inicializa os estados dos inputs
     if "comp_product_type" not in st.session_state:
-        st.session_state.comp_product_type = "gummy"   # padrão: Gomas (primeira opção)
+        st.session_state.comp_product_type = "gummy"   # fallback
     if "comp_thc_conc" not in st.session_state:
         st.session_state.comp_thc_conc = 32.0
     if "comp_cbd_conc" not in st.session_state:
@@ -268,31 +273,40 @@ def render_comparator(results, lang, df_selected):
         ]
     else:
         options = [
-            "Gummies/Edibles (pieces)",  # alterado de "units" para "pieces"
+            "Gummies/Edibles (pieces)",
             "Oil/Tincture (mL)",
             "Concentrate/Resin (g)"
         ]
 
-    # Mapeamento inverso: texto -> tipo
-    text_to_type = {
-        options[0]: "gummy",
-        options[1]: "oleo",
-        options[2]: "concentrado"
-    }
+    # Índice baseado no tipo atual
+    tipo_atual = st.session_state.comp_product_type
+    if tipo_atual == "gummy":
+        default_index = 0
+    elif tipo_atual == "oleo":
+        default_index = 1
+    else:
+        default_index = 2
 
-    # Radio com chave para manter o estado
-    selected_text = st.radio(
+    # Função para atualizar o tipo com base no valor do radio (que é o texto)
+    def on_product_type_change():
+        selected_text = st.session_state.product_type_radio
+        if "Gomas" in selected_text or "Gummies" in selected_text:
+            st.session_state.comp_product_type = "gummy"
+        elif "Óleo" in selected_text or "Oil" in selected_text:
+            st.session_state.comp_product_type = "oleo"
+        else:
+            st.session_state.comp_product_type = "concentrado"
+
+    # Radio com chave para manter estado e on_change para sincronizar
+    st.radio(
         "Tipo de produto" if lang == "pt" else "Product type",
         options=options,
-        index=0 if st.session_state.comp_product_type == "gummy" else (1 if st.session_state.comp_product_type == "oleo" else 2),
+        index=default_index,
         horizontal=True,
         key="product_type_radio",
+        on_change=on_product_type_change,
         label_visibility="visible"
     )
-
-    # Atualiza o tipo interno com base no texto selecionado
-    if selected_text in text_to_type:
-        st.session_state.comp_product_type = text_to_type[selected_text]
 
     # ======================================================================
     # INPUTS PARA GOMAS/COMESTÍVEIS (agora primeiro)
