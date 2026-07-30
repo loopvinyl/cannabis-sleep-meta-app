@@ -13,10 +13,9 @@ if "lang" not in st.session_state:
     st.session_state.lang = "en"  # Padrão: inglês
 
 # ----------------------------------------------------------------------------
-# 2. FUNÇÕES COMPARTILHADAS (meta-análise, gráficos, formatação)
+# 2. FUNÇÕES COMPARTILHADAS
 # ----------------------------------------------------------------------------
 def fmt_num(value, decimals=3):
-    """Formata números com vírgula decimal no PT e ponto no EN."""
     lang = st.session_state.lang
     if value is None:
         return "N/A"
@@ -175,13 +174,28 @@ STUDIES = [
 ]
 
 # ----------------------------------------------------------------------------
-# 4. INTERFACE PRINCIPAL (UI DUPLICADA)
+# 4. INTERFACE PRINCIPAL (COM INICIALIZAÇÃO ROBUSTA)
 # ----------------------------------------------------------------------------
 def main():
     lang = st.session_state.lang
 
     # ======================================================================
-    # SIDEBAR (comum a ambos os idiomas – apenas o seletor de idioma)
+    # INICIALIZAÇÃO ÚNICA DOS CHECKBOXES (CORREÇÃO DO PROBLEMA)
+    # ======================================================================
+    # A flag "initialized" garante que os valores padrão sejam setados
+    # APENAS UMA VEZ, no primeiro carregamento do app.
+    if "initialized" not in st.session_state:
+        for idx, row in enumerate(STUDIES):
+            key = f"include_{idx}"
+            # Pakdee (índice 1) começa desmarcado por ser outlier
+            if row["id"] == "Pakdee, Sribunrieng e Poowanna (2026)":
+                st.session_state[key] = False
+            else:
+                st.session_state[key] = True
+        st.session_state.initialized = True
+
+    # ======================================================================
+    # SIDEBAR (seletor de idioma)
     # ======================================================================
     with st.sidebar:
         st.header("Language / Idioma")
@@ -200,57 +214,30 @@ def main():
 
         st.divider()
 
-        # Informações comuns
+        # Informações (traduzidas manualmente)
         if lang == "en":
             st.subheader("ℹ️ About this App")
-            st.info(
-                "Select/deselect studies on the left to see how the pooled effect changes. "
-                "The app uses a Random-Effects model (DerSimonian-Laird).\n\n"
-                "Formatted for: **EN**"
-            )
+            st.info("Select/deselect studies to see the pooled effect change. Uses Random-Effects (DL).\n\nFormatted for: **EN**")
             st.caption("Developed for academic research purposes.")
             st.divider()
             st.subheader("⚙️ Statistical Method")
-            st.markdown(
-                "**DerSimonian-Laird (DL)** random-effects model.\n\n"
-                "Q-statistic (Heterogeneity): **{q:.2f}**\n\n"
-                "Weights are calculated based on within-study variance + between-studies variance (Tau²)."
-            )
+            st.markdown("**DerSimonian-Laird (DL)** random-effects model.\n\nWeights = within-study + between-studies variance (Tau²).")
         else:
             st.subheader("ℹ️ Sobre este App")
-            st.info(
-                "Selecione/desselecione os estudos à esquerda para ver como o efeito combinado muda. "
-                "O app usa o modelo de Efeitos Aleatórios (DerSimonian-Laird).\n\n"
-                "Formatado para: **PT-BR**"
-            )
+            st.info("Selecione/desselecione estudos para ver o efeito combinado mudar. Usa Efeitos Aleatórios (DL).\n\nFormatado para: **PT-BR**")
             st.caption("Desenvolvido para fins acadêmicos.")
             st.divider()
             st.subheader("⚙️ Método Estatístico")
-            st.markdown(
-                "Modelo de efeitos aleatórios **DerSimonian-Laird (DL)**.\n\n"
-                "Estatística Q (Heterogeneidade): **{q:.2f}**\n\n"
-                "Os pesos são calculados com base na variância intra-estudo + variância entre estudos (Tau²)."
-            )
+            st.markdown("Modelo de efeitos aleatórios **DerSimonian-Laird (DL)**.\n\nPesos = variância intra + variância entre estudos (Tau²).")
 
     # ======================================================================
-    # SE O IDIOMA FOR INGLÊS → RENDERIZA A UI EM INGLÊS
+    # CORPO DO APP (INGLÊS)
     # ======================================================================
     if lang == "en":
-        # ---- TÍTULO ----
         st.title("🗂️ Interactive Meta-Analysis: THC/Cannabis & Sleep")
-        st.caption("Based on the methodology of Tait et al. (2026) - Quality of Life Research")
+        st.caption("Based on Tait et al. (2026) - Quality of Life Research")
 
-        # ---- SELECIONAR ESTUDOS ----
         df_studies = pd.DataFrame(STUDIES)
-
-        for idx, row in df_studies.iterrows():
-            key = f"include_{idx}"
-            if key not in st.session_state:
-                if row["id"] == "Pakdee, Sribunrieng e Poowanna (2026)":
-                    st.session_state[key] = False
-                else:
-                    st.session_state[key] = True
-
         st.subheader("📊 Select Studies to Include")
 
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -275,17 +262,15 @@ def main():
             c6.write(f"{row['se']:.3f}")
 
         df_selected = df_studies.loc[selected_ids].copy()
-        st.caption(f"**{len(df_selected)}** out of **{len(df_studies)}** studies selected.")
+        st.caption(f"**{len(df_selected)}** out of **{len(df_studies)}** selected.")
 
-        # ---- EXECUTAR META-ANÁLISE ----
         if len(df_selected) >= 2:
             results = run_meta_analysis(df_selected)
         else:
             results = None
-            st.warning("Select at least **2 studies** to run the meta-analysis.")
+            st.warning("Select at least **2 studies**.")
 
         if results:
-            # Sidebar com resultados atuais
             with st.sidebar:
                 st.subheader("📊 Current Results")
                 st.metric("Q-statistic", f"{fmt_num(results['q'], 2)}")
@@ -294,23 +279,12 @@ def main():
 
             st.divider()
             st.subheader("📈 Meta-Analysis Results")
-
             c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.metric("Pooled Effect (Cohen's d)", fmt_num(results["pooled_d"], 3))
-            with c2:
-                ci_text = f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]"
-                st.metric("95% Confidence Interval", ci_text)
-            with c3:
-                if results["p_val"] < 0.001:
-                    p_text = "< 0.001"
-                else:
-                    p_text = fmt_num(results["p_val"], 3)
-                st.metric("P-value", p_text)
-            with c4:
-                st.metric("I²", f"{fmt_num(results['i2'], 1)} %")
+            c1.metric("Pooled Effect (d)", fmt_num(results["pooled_d"], 3))
+            c2.metric("95% CI", f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]")
+            c3.metric("P-value", "< 0.001" if results["p_val"] < 0.001 else fmt_num(results["p_val"], 3))
+            c4.metric("I²", f"{fmt_num(results['i2'], 1)} %")
 
-            # Tabela de pesos
             st.divider()
             st.subheader("📋 Study Weights")
             df_weights = df_selected.copy()
@@ -320,113 +294,53 @@ def main():
             df_display["d"] = df_display["d"].apply(lambda x: f"{x:.2f}")
             df_display["se"] = df_display["se"].apply(lambda x: f"{x:.3f}")
             st.dataframe(df_display, use_container_width=True)
-            st.caption("Larger squares indicate greater weight in the meta-analysis.")
+            st.caption("Larger squares = greater weight.")
 
-            # Gráficos
             st.divider()
             st.subheader("🌲 Forest Plot")
-            fig_forest = plot_forest(df_selected, results)
-            if fig_forest:
-                st.pyplot(fig_forest)
-                st.caption("Right-click on the plot to save it.")
+            fig = plot_forest(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("Right-click to save.")
 
             st.divider()
             st.subheader("🔍 Funnel Plot (Publication Bias)")
-            fig_funnel = plot_funnel(df_selected, results)
-            if fig_funnel:
-                st.pyplot(fig_funnel)
-                st.caption(
-                    "The funnel plot shows the distribution of study effects against their standard errors. "
-                    "Asymmetry may indicate publication bias."
-                )
+            fig = plot_funnel(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("Asymmetry may indicate publication bias.")
 
             st.divider()
             st.subheader("📉 Sensitivity Analysis (Leave-One-Out)")
-            fig_sens = plot_sensitivity(df_selected, results)
-            if fig_sens:
-                st.pyplot(fig_sens)
-                st.caption(
-                    "This plot shows the pooled effect after removing each study one at a time. "
-                    "If the effect remains stable, the result is robust."
-                )
+            fig = plot_sensitivity(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("If effect remains stable, result is robust.")
 
-            # Interpretação em inglês
             st.divider()
             st.subheader("📖 Interpretation Guide")
-
             d = results["pooled_d"]
-            ci_lb = results["ci_lb"]
-            ci_ub = results["ci_ub"]
-            p = results["p_val"]
+            effect_desc = "small" if abs(d) < 0.2 else "moderate" if abs(d) < 0.5 else "large"
+            st.markdown(f"**d = {d:.3f}** – **{effect_desc}** effect. Sleep improved by {abs(d):.1f} SD.")
             i2 = results["i2"]
-
-            if abs(d) < 0.2:
-                effect_desc = "small"
-            elif abs(d) < 0.5:
-                effect_desc = "moderate"
-            else:
-                effect_desc = "large"
-
-            st.markdown(
-                f"**Cohen's d = {d:.3f}** – This is a **{effect_desc}** effect size. "
-                f"It indicates that the THC/cannabis intervention improved sleep quality by "
-                f"{abs(d):.1f} standard deviations compared to control/baseline."
-            )
-
-            if i2 < 25:
-                het_desc = "low"
-                het_text = "The studies are relatively consistent, suggesting that the pooled effect is reliable."
-            elif i2 < 50:
-                het_desc = "moderate"
-                het_text = "There is some variability among studies, but the pooled effect remains informative."
-            else:
-                het_desc = "high"
-                het_text = (
-                    "There is substantial variability among studies. This may reflect differences in populations, "
-                    "doses, or outcome measures. A random-effects model was used to account for this."
-                )
-
-            st.markdown(f"**I² = {i2:.1f}%** – This indicates **{het_desc}** heterogeneity. {het_text}")
-
-            if p < 0.05:
-                p_text = "statistically significant (p < 0.05)"
-            else:
-                p_text = "not statistically significant (p ≥ 0.05)"
-            st.markdown(f"**p-value = {fmt_num(p, 3)}** – The result is **{p_text}**.")
-
-            if ci_lb < 0 < ci_ub:
-                ci_does = "does"
-                ci_support = "suggesting no significant effect"
-            else:
-                ci_does = "does not"
-                ci_support = "supporting a significant effect"
-            st.markdown(
-                f"The 95% confidence interval [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] "
-                f"{ci_does} contain zero, {ci_support}."
-            )
-
+            het_desc = "low" if i2 < 25 else "moderate" if i2 < 50 else "high"
+            st.markdown(f"**I² = {i2:.1f}%** – **{het_desc}** heterogeneity.")
+            p = results["p_val"]
+            st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significant' if p < 0.05 else 'Not significant'} (p < 0.05).")
+            ci_lb, ci_ub = results["ci_lb"], results["ci_ub"]
+            contains_zero = "does" if ci_lb < 0 < ci_ub else "does not"
+            st.markdown(f"95% CI [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contain zero.")
         else:
-            st.info("👈 Select more studies in the table above.")
+            st.info("👈 Select more studies.")
 
     # ======================================================================
-    # SE O IDIOMA FOR PORTUGUÊS → RENDERIZA A UI EM PORTUGUÊS
+    # CORPO DO APP (PORTUGUÊS)
     # ======================================================================
     else:
-        # ---- TÍTULO ----
         st.title("🗂️ Meta-Análise Interativa: THC/Cannabis & Sono")
-        st.caption("Baseado na metodologia de Tait et al. (2026) - Quality of Life Research")
+        st.caption("Baseado em Tait et al. (2026) - Quality of Life Research")
 
-        # ---- SELECIONAR ESTUDOS ----
         df_studies = pd.DataFrame(STUDIES)
-
-        for idx, row in df_studies.iterrows():
-            key = f"include_{idx}"
-            if key not in st.session_state:
-                if row["id"] == "Pakdee, Sribunrieng e Poowanna (2026)":
-                    st.session_state[key] = False
-                else:
-                    st.session_state[key] = True
-
         st.subheader("📊 Selecione os Estudos para Incluir")
 
         col1, col2, col3, col4, col5, col6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -444,7 +358,7 @@ def main():
             checked = c1.checkbox("", value=st.session_state[key], key=key, label_visibility="collapsed")
             if checked:
                 selected_ids.append(idx)
-
+            
             tipo_traduzido = "Coorte" if row["type"] == "Coorte" else "ECR"
             c2.write(row["id"])
             c3.write(tipo_traduzido)
@@ -453,17 +367,15 @@ def main():
             c6.write(fmt_num(row["se"], 3))
 
         df_selected = df_studies.loc[selected_ids].copy()
-        st.caption(f"**{len(df_selected)}** de **{len(df_studies)}** estudos selecionados.")
+        st.caption(f"**{len(df_selected)}** de **{len(df_studies)}** selecionados.")
 
-        # ---- EXECUTAR META-ANÁLISE ----
         if len(df_selected) >= 2:
             results = run_meta_analysis(df_selected)
         else:
             results = None
-            st.warning("Selecione pelo menos **2 estudos** para realizar a meta-análise.")
+            st.warning("Selecione pelo menos **2 estudos**.")
 
         if results:
-            # Sidebar com resultados atuais
             with st.sidebar:
                 st.subheader("📊 Resultados Atuais")
                 st.metric("Estatística Q", fmt_num(results["q"], 2))
@@ -472,23 +384,12 @@ def main():
 
             st.divider()
             st.subheader("📈 Resultados da Meta-Análise")
-
             c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.metric("Efeito Combinado (d de Cohen)", fmt_num(results["pooled_d"], 3))
-            with c2:
-                ci_text = f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]"
-                st.metric("Intervalo de Confiança 95%", ci_text)
-            with c3:
-                if results["p_val"] < 0.001:
-                    p_text = "< 0,001"
-                else:
-                    p_text = fmt_num(results["p_val"], 3)
-                st.metric("Valor-p", p_text)
-            with c4:
-                st.metric("I²", f"{fmt_num(results['i2'], 1)} %")
+            c1.metric("Efeito Combinado (d)", fmt_num(results["pooled_d"], 3))
+            c2.metric("IC 95%", f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]")
+            c3.metric("Valor-p", "< 0,001" if results["p_val"] < 0.001 else fmt_num(results["p_val"], 3))
+            c4.metric("I²", f"{fmt_num(results['i2'], 1)} %")
 
-            # Tabela de pesos
             st.divider()
             st.subheader("📋 Pesos dos Estudos")
             df_weights = df_selected.copy()
@@ -506,93 +407,44 @@ def main():
                 "Peso (%)": "Peso (%)"
             })
             st.dataframe(df_display, use_container_width=True)
-            st.caption("Quadrados maiores indicam maior peso na meta-análise.")
+            st.caption("Quadrados maiores = maior peso.")
 
-            # Gráficos
             st.divider()
             st.subheader("🌲 Forest Plot")
-            fig_forest = plot_forest(df_selected, results)
-            if fig_forest:
-                st.pyplot(fig_forest)
-                st.caption("Clique com o botão direito no gráfico para salvá-lo.")
+            fig = plot_forest(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("Clique com o direito para salvar.")
 
             st.divider()
             st.subheader("🔍 Gráfico de Funil (Viés de Publicação)")
-            fig_funnel = plot_funnel(df_selected, results)
-            if fig_funnel:
-                st.pyplot(fig_funnel)
-                st.caption(
-                    "O gráfico de funil mostra a distribuição dos efeitos dos estudos contra seus erros padrão. "
-                    "Assimetria pode indicar viés de publicação."
-                )
+            fig = plot_funnel(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("Assimetria pode indicar viés de publicação.")
 
             st.divider()
             st.subheader("📉 Análise de Sensibilidade (Leave-One-Out)")
-            fig_sens = plot_sensitivity(df_selected, results)
-            if fig_sens:
-                st.pyplot(fig_sens)
-                st.caption(
-                    "Este gráfico mostra o efeito combinado após remover cada estudo um por vez. "
-                    "Se o efeito permanece estável, o resultado é robusto."
-                )
+            fig = plot_sensitivity(df_selected, results)
+            if fig:
+                st.pyplot(fig)
+                st.caption("Se o efeito se mantém estável, o resultado é robusto.")
 
-            # Interpretação em português
             st.divider()
             st.subheader("📖 Guia de Interpretação")
-
             d = results["pooled_d"]
-            ci_lb = results["ci_lb"]
-            ci_ub = results["ci_ub"]
-            p = results["p_val"]
+            effect_desc = "pequeno" if abs(d) < 0.2 else "moderado" if abs(d) < 0.5 else "grande"
+            st.markdown(f"**d = {d:.3f}** – Efeito **{effect_desc}**. Sono melhorou em {abs(d):.1f} DP.")
             i2 = results["i2"]
-
-            if abs(d) < 0.2:
-                effect_desc = "pequeno"
-            elif abs(d) < 0.5:
-                effect_desc = "moderado"
-            else:
-                effect_desc = "grande"
-
-            st.markdown(
-                f"**d de Cohen = {d:.3f}** – Este é um efeito **{effect_desc}**. "
-                f"Indica que a intervenção com THC/cannabis melhorou a qualidade do sono em "
-                f"{abs(d):.1f} desvios padrão em comparação com o controle/baseline."
-            )
-
-            if i2 < 25:
-                het_desc = "baixa"
-                het_text = "Os estudos são relativamente consistentes, sugerindo que o efeito combinado é confiável."
-            elif i2 < 50:
-                het_desc = "moderada"
-                het_text = "Há alguma variabilidade entre os estudos, mas o efeito combinado permanece informativo."
-            else:
-                het_desc = "alta"
-                het_text = (
-                    "Há variabilidade substancial entre os estudos. Isso pode refletir diferenças nas populações, "
-                    "doses ou medidas de desfecho. Um modelo de efeitos aleatórios foi usado para considerar isso."
-                )
-
-            st.markdown(f"**I² = {i2:.1f}%** – Isso indica heterogeneidade **{het_desc}**. {het_text}")
-
-            if p < 0.05:
-                p_text = "estatisticamente significativo (p < 0,05)"
-            else:
-                p_text = "não estatisticamente significativo (p ≥ 0,05)"
-            st.markdown(f"**Valor-p = {fmt_num(p, 3)}** – O resultado é **{p_text}**.")
-
-            if ci_lb < 0 < ci_ub:
-                ci_does = "sim"
-                ci_support = "sugerindo que não há efeito significativo"
-            else:
-                ci_does = "não"
-                ci_support = "apoiando um efeito significativo"
-            st.markdown(
-                f"O intervalo de confiança 95% [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] "
-                f"{ci_does} contém zero, {ci_support}."
-            )
-
+            het_desc = "baixa" if i2 < 25 else "moderada" if i2 < 50 else "alta"
+            st.markdown(f"**I² = {i2:.1f}%** – Heterogeneidade **{het_desc}**.")
+            p = results["p_val"]
+            st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significativo' if p < 0.05 else 'Não significativo'} (p < 0,05).")
+            ci_lb, ci_ub = results["ci_lb"], results["ci_ub"]
+            contains_zero = "sim" if ci_lb < 0 < ci_ub else "não"
+            st.markdown(f"IC 95% [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contém zero.")
         else:
-            st.info("👈 Selecione mais estudos na tabela acima.")
+            st.info("👈 Selecione mais estudos.")
 
 if __name__ == "__main__":
     main()
