@@ -195,7 +195,7 @@ def plot_sensitivity(df, results):
 def render_comparator(results, lang, df_selected):
     """
     Renderiza a tabela comparativa "Sua Dose Atual vs. Estudos".
-    Suporta concentrados (em g com %), óleos (em mL com mg/mL) e gomas (unidades com mg por unidade).
+    Suporta concentrados (em g com % ou mg por serving), óleos (em mL com mg/mL) e gomas (unidades com mg por unidade).
     Inclui THC, CBD e outros canabinoides (opcionais).
     Desdobra estudos com vias mistas em linhas separadas.
     Agora sempre visível (sem expander) e com ordem: Gomas → Óleo → Resina.
@@ -229,6 +229,18 @@ def render_comparator(results, lang, df_selected):
         st.session_state.comp_other_per_gummy = 0.0
     if "comp_num_gummies" not in st.session_state:
         st.session_state.comp_num_gummies = 1.0
+
+    # --- NOVAS INICIALIZAÇÕES PARA O MODO CONCENTRADO (mg por serving) ---
+    if "comp_concentrate_mode_idx" not in st.session_state:
+        st.session_state["comp_concentrate_mode_idx"] = 0   # 0 = %, 1 = mg/serving
+    if "comp_thc_mg_per_serving" not in st.session_state:
+        st.session_state["comp_thc_mg_per_serving"] = 340.0
+    if "comp_serving_size_g" not in st.session_state:
+        st.session_state["comp_serving_size_g"] = 0.5
+    if "comp_cbd_mg_per_serving" not in st.session_state:
+        st.session_state["comp_cbd_mg_per_serving"] = 0.0
+    if "comp_other_mg_per_serving" not in st.session_state:
+        st.session_state["comp_other_mg_per_serving"] = 0.0
 
     st.markdown("---")
     # Título sempre visível (substitui o expander)
@@ -369,63 +381,170 @@ def render_comparator(results, lang, df_selected):
             bio_factor = 0.12
 
     # ======================================================================
-    # INPUTS PARA CONCENTRADO/RESINA (agora por último)
+    # INPUTS PARA CONCENTRADO/RESINA (agora por último) - VERSÃO MODIFICADA
     # ======================================================================
     else:  # concentrado
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            thc_conc = st.number_input(
-                "THC (%)" if lang == "pt" else "THC (%)",
-                min_value=0.0, max_value=100.0, value=st.session_state.comp_thc_conc, step=0.5,
-                key="comp_thc_conc_input",
-                help="Concentração de THC no seu produto" if lang == "pt" else "THC concentration in your product"
-            )
-            st.session_state.comp_thc_conc = thc_conc
-        with col2:
-            cbd_conc = st.number_input(
-                "CBD (%)" if lang == "pt" else "CBD (%)",
-                min_value=0.0, max_value=100.0, value=st.session_state.comp_cbd_conc, step=0.5,
-                key="comp_cbd_conc_input",
-                help="Concentração de CBD no seu produto (opcional)" if lang == "pt" else "CBD concentration in your product (optional)"
-            )
-            st.session_state.comp_cbd_conc = cbd_conc
-        with col3:
-            other_conc = st.number_input(
-                f"{st.session_state.comp_other_name} (%)" if lang == "pt" else f"{st.session_state.comp_other_name} (%)",
-                min_value=0.0, max_value=100.0, value=st.session_state.comp_other_conc, step=0.5,
-                key="comp_other_conc_input",
-                help=f"Concentração de {st.session_state.comp_other_name} no seu produto (opcional)" if lang == "pt" else f"{st.session_state.comp_other_name} concentration in your product (optional)"
-            )
-            st.session_state.comp_other_conc = other_conc
-        
-        quantity = st.number_input(
-            "Quantidade diária (g)" if lang == "pt" else "Daily amount (g)",
-            min_value=0.001, max_value=10.0, value=st.session_state.comp_quantity, step=0.001, format="%.3f",
-            key="comp_quantity_input",
-            help="Quantidade do produto que você usa por dia (ex: 0.05g)" if lang == "pt" else "Amount of product you use per day (e.g., 0.05g)"
+        # Modo de entrada: % ou mg por serving
+        mode = st.radio(
+            "Modo de concentração" if lang == "pt" else "Concentration mode",
+            options=[
+                "Porcentagem (%)" if lang == "pt" else "Percentage (%)",
+                "mg por serving" if lang == "pt" else "mg per serving"
+            ],
+            key="comp_concentrate_mode",
+            horizontal=True,
+            index=st.session_state["comp_concentrate_mode_idx"]
         )
-        st.session_state.comp_quantity = quantity
-        
-        if thc_conc > 0 and quantity > 0:
-            thc_mg = (thc_conc / 100) * quantity * 1000
-            cbd_mg = (cbd_conc / 100) * quantity * 1000 if cbd_conc > 0 else 0
-            other_mg = (other_conc / 100) * quantity * 1000 if other_conc > 0 else 0
-            dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
-            dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_conc > 0 else None
-            dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_conc > 0 else None
-            if lang == "pt":
-                produto_tipo_label = "Inalado (vaporizado/dabbing)"
-            else:
-                produto_tipo_label = "Inhaled (vaporized/dabbing)"
-            bio_factor = 0.55
+        # Atualiza o índice no estado
+        if mode.startswith("Porcentagem") or mode.startswith("Percentage"):
+            st.session_state["comp_concentrate_mode_idx"] = 0
+            modo_percentual = True
+        else:
+            st.session_state["comp_concentrate_mode_idx"] = 1
+            modo_percentual = False
 
+        # Variáveis que serão preenchidas nos dois modos
+        thc_conc = 0.0
+        cbd_conc = 0.0
+        other_conc = 0.0
+        thc_mg_per_serving = 0.0
+        serving_size_g = 0.0
+        cbd_mg_per_serving = 0.0
+        other_mg_per_serving = 0.0
+
+        if modo_percentual:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                thc_conc = st.number_input(
+                    "THC (%)" if lang == "pt" else "THC (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_thc_conc, step=0.5,
+                    key="comp_thc_conc_input",
+                    help="Concentração de THC no seu produto" if lang == "pt" else "THC concentration in your product"
+                )
+                st.session_state.comp_thc_conc = thc_conc
+            with col2:
+                cbd_conc = st.number_input(
+                    "CBD (%)" if lang == "pt" else "CBD (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_cbd_conc, step=0.5,
+                    key="comp_cbd_conc_input",
+                    help="Concentração de CBD no seu produto (opcional)" if lang == "pt" else "CBD concentration in your product (optional)"
+                )
+                st.session_state.comp_cbd_conc = cbd_conc
+            with col3:
+                other_conc = st.number_input(
+                    f"{st.session_state.comp_other_name} (%)" if lang == "pt" else f"{st.session_state.comp_other_name} (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_other_conc, step=0.5,
+                    key="comp_other_conc_input",
+                    help=f"Concentração de {st.session_state.comp_other_name} no seu produto (opcional)" if lang == "pt" else f"{st.session_state.comp_other_name} concentration in your product (optional)"
+                )
+                st.session_state.comp_other_conc = other_conc
+            
+            quantity = st.number_input(
+                "Quantidade diária (g)" if lang == "pt" else "Daily amount (g)",
+                min_value=0.001, max_value=10.0, value=st.session_state.comp_quantity, step=0.001, format="%.3f",
+                key="comp_quantity_input",
+                help="Quantidade do produto que você usa por dia (ex: 0.05g)" if lang == "pt" else "Amount of product you use per day (e.g., 0.05g)"
+            )
+            st.session_state.comp_quantity = quantity
+
+            if thc_conc > 0 and quantity > 0:
+                thc_mg = (thc_conc / 100) * quantity * 1000
+                cbd_mg = (cbd_conc / 100) * quantity * 1000 if cbd_conc > 0 else 0
+                other_mg = (other_conc / 100) * quantity * 1000 if other_conc > 0 else 0
+                dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
+                dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_conc > 0 else None
+                dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_conc > 0 else None
+            else:
+                thc_mg = 0; cbd_mg = 0; other_mg = 0
+                dose_label_thc = None
+                dose_label_cbd = None
+                dose_label_other = None
+        else:
+            # Modo mg por serving
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                thc_mg_per_serving = st.number_input(
+                    "THC (mg por serving)" if lang == "pt" else "THC (mg per serving)",
+                    min_value=0.0, max_value=1000.0, value=st.session_state["comp_thc_mg_per_serving"], step=1.0,
+                    key="comp_thc_mg_per_serving_input",
+                    help="Quantidade de THC por serving (ex: 340mg)" if lang == "pt" else "THC amount per serving (e.g., 340mg)"
+                )
+                st.session_state["comp_thc_mg_per_serving"] = thc_mg_per_serving
+            with col2:
+                serving_size_g = st.number_input(
+                    "Peso do serving (g)" if lang == "pt" else "Serving weight (g)",
+                    min_value=0.001, max_value=10.0, value=st.session_state["comp_serving_size_g"], step=0.001, format="%.3f",
+                    key="comp_serving_size_g_input",
+                    help="Peso de uma serving (ex: 0.5g)" if lang == "pt" else "Weight of one serving (e.g., 0.5g)"
+                )
+                st.session_state["comp_serving_size_g"] = serving_size_g
+            with col3:
+                cbd_mg_per_serving = st.number_input(
+                    "CBD (mg por serving)" if lang == "pt" else "CBD (mg per serving)",
+                    min_value=0.0, max_value=1000.0, value=st.session_state["comp_cbd_mg_per_serving"], step=1.0,
+                    key="comp_cbd_mg_per_serving_input",
+                    help="CBD por serving (opcional)" if lang == "pt" else "CBD per serving (optional)"
+                )
+                st.session_state["comp_cbd_mg_per_serving"] = cbd_mg_per_serving
+            # Campo para outros canabinoides (opcional)
+            other_mg_per_serving = st.number_input(
+                f"{st.session_state.comp_other_name} (mg por serving)" if lang == "pt" else f"{st.session_state.comp_other_name} (mg per serving)",
+                min_value=0.0, max_value=1000.0, value=st.session_state["comp_other_mg_per_serving"], step=1.0,
+                key="comp_other_mg_per_serving_input",
+                help=f"{st.session_state.comp_other_name} por serving (opcional)" if lang == "pt" else f"{st.session_state.comp_other_name} per serving (optional)"
+            )
+            st.session_state["comp_other_mg_per_serving"] = other_mg_per_serving
+
+            quantity = st.number_input(
+                "Quantidade diária (g)" if lang == "pt" else "Daily amount (g)",
+                min_value=0.001, max_value=10.0, value=st.session_state.comp_quantity, step=0.001, format="%.3f",
+                key="comp_quantity_input",
+                help="Quantidade do produto que você usa por dia (ex: 0.05g)" if lang == "pt" else "Amount of product you use per day (e.g., 0.05g)"
+            )
+            st.session_state.comp_quantity = quantity
+
+            if thc_mg_per_serving > 0 and serving_size_g > 0 and quantity > 0:
+                thc_mg = (thc_mg_per_serving / serving_size_g) * quantity
+                cbd_mg = (cbd_mg_per_serving / serving_size_g) * quantity if cbd_mg_per_serving > 0 else 0
+                other_mg = (other_mg_per_serving / serving_size_g) * quantity if other_mg_per_serving > 0 else 0
+                dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
+                dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_mg_per_serving > 0 else None
+                dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_mg_per_serving > 0 else None
+            else:
+                thc_mg = 0; cbd_mg = 0; other_mg = 0
+                dose_label_thc = None
+                dose_label_cbd = None
+                dose_label_other = None
+
+        # Definição do fator de biodisponibilidade e rótulo da via
+        if lang == "pt":
+            produto_tipo_label = "Inalado (vaporizado/dabbing)"
+        else:
+            produto_tipo_label = "Inhaled (vaporized/dabbing)"
+        bio_factor = 0.55
+
+    # ================================================================
+    # EXIBIÇÃO DOS RESULTADOS (comum a todos os tipos)
+    # ================================================================
     st.markdown("---")
     
-    # Exibe o resultado do cálculo APENAS se houver dados válidos
-    if (st.session_state.comp_product_type == "concentrado" and thc_conc > 0 and quantity > 0) or \
-       (st.session_state.comp_product_type == "oleo" and thc_mg_ml > 0 and quantity_ml > 0) or \
-       (st.session_state.comp_product_type == "gummy" and thc_per_gummy > 0 and num_gummies > 0):
-        
+    # Determinar se há dados válidos
+    has_valid = False
+    if st.session_state.comp_product_type == "gummy":
+        if thc_per_gummy > 0 and num_gummies > 0:
+            has_valid = True
+    elif st.session_state.comp_product_type == "oleo":
+        if thc_mg_ml > 0 and quantity_ml > 0:
+            has_valid = True
+    else:  # concentrado
+        if modo_percentual:
+            if thc_conc > 0 and quantity > 0:
+                has_valid = True
+        else:
+            if thc_mg_per_serving > 0 and serving_size_g > 0 and quantity > 0:
+                has_valid = True
+
+    if has_valid:
         # Calcula THC biodisponível para o usuário
         user_bio_thc = thc_mg * bio_factor
         
