@@ -273,31 +273,26 @@ def render_comparator(results, lang, df_selected):
             "Concentrate/Resin (g)"
         ]
 
-    # Índice baseado no tipo atual
-    tipo_atual = st.session_state.comp_product_type
-    if tipo_atual == "gummy":
-        default_index = 0
-    elif tipo_atual == "oleo":
-        default_index = 1
-    else:
-        default_index = 2
+    # Mapeamento inverso: texto -> tipo
+    text_to_type = {
+        options[0]: "gummy",
+        options[1]: "oleo",
+        options[2]: "concentrado"
+    }
 
-    # Radio que retorna o texto selecionado (sem key, sem on_change)
+    # Radio com chave para manter o estado
     selected_text = st.radio(
         "Tipo de produto" if lang == "pt" else "Product type",
         options=options,
-        index=default_index,
+        index=0 if st.session_state.comp_product_type == "gummy" else (1 if st.session_state.comp_product_type == "oleo" else 2),
         horizontal=True,
+        key="product_type_radio",
         label_visibility="visible"
     )
 
     # Atualiza o tipo interno com base no texto selecionado
-    if "Gomas" in selected_text or "Gummies" in selected_text:
-        st.session_state.comp_product_type = "gummy"
-    elif "Óleo" in selected_text or "Oil" in selected_text:
-        st.session_state.comp_product_type = "oleo"
-    else:
-        st.session_state.comp_product_type = "concentrado"
+    if selected_text in text_to_type:
+        st.session_state.comp_product_type = text_to_type[selected_text]
 
     # ======================================================================
     # INPUTS PARA GOMAS/COMESTÍVEIS (agora primeiro)
