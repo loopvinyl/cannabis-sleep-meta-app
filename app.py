@@ -202,7 +202,7 @@ def render_comparator(results, lang, df_selected):
     """
     # Inicializa os estados dos inputs
     if "comp_product_type" not in st.session_state:
-        st.session_state.comp_product_type = "concentrado"   # padrão interno
+        st.session_state.comp_product_type = "gummy"   # padrão: Gomas (primeira opção)
     if "comp_thc_conc" not in st.session_state:
         st.session_state.comp_thc_conc = 32.0
     if "comp_cbd_conc" not in st.session_state:
@@ -259,24 +259,50 @@ def render_comparator(results, lang, df_selected):
         """)
 
     # NOVA ORDEM: Gomas, Óleo, Resina (esquerda → direita)
-    product_type = st.radio(
-        "Tipo de produto" if lang == "pt" else "Product type",
-        options=[
-            "Gomas/Comestíveis (unidades)" if lang == "pt" else "Gummies/Edibles (units)",
-            "Óleo/Tintura (mL)" if lang == "pt" else "Oil/Tincture (mL)",
-            "Concentrado/Resina (g)" if lang == "pt" else "Concentrate/Resin (g)"
-        ],
-        key="comp_product_type_radio",
-        horizontal=True,
-        index=0 if st.session_state.comp_product_type == "gummy" else (1 if st.session_state.comp_product_type == "oleo" else 2)
-    )
-    # Mapeamento para o estado interno
-    if "Gomas" in product_type or "Gummies" in product_type:
-        st.session_state.comp_product_type = "gummy"
-    elif "Óleo" in product_type or "Oil" in product_type:
-        st.session_state.comp_product_type = "oleo"
+    # Definir as opções de acordo com o idioma
+    if lang == "pt":
+        options = [
+            "Gomas/Comestíveis (unidades)",
+            "Óleo/Tintura (mL)",
+            "Concentrado/Resina (g)"
+        ]
     else:
-        st.session_state.comp_product_type = "concentrado"
+        options = [
+            "Gummies/Edibles (pieces)",  # alterado de "units" para "pieces"
+            "Oil/Tincture (mL)",
+            "Concentrate/Resin (g)"
+        ]
+
+    # Função para atualizar o tipo com base na opção selecionada
+    def on_product_type_change():
+        # O valor selecionado está em st.session_state._product_type_temp
+        selected = st.session_state._product_type_temp
+        if "Gomas" in selected or "Gummies" in selected:
+            st.session_state.comp_product_type = "gummy"
+        elif "Óleo" in selected or "Oil" in selected:
+            st.session_state.comp_product_type = "oleo"
+        else:
+            st.session_state.comp_product_type = "concentrado"
+
+    # Índice baseado no tipo atual
+    tipo_atual = st.session_state.comp_product_type
+    if tipo_atual == "gummy":
+        default_index = 0
+    elif tipo_atual == "oleo":
+        default_index = 1
+    else:
+        default_index = 2
+
+    # Radio sem key, usando on_change para atualizar o estado
+    st.radio(
+        "Tipo de produto" if lang == "pt" else "Product type",
+        options=options,
+        index=default_index,
+        horizontal=True,
+        key="_product_type_temp",
+        on_change=on_product_type_change,
+        label_visibility="visible"
+    )
 
     # ======================================================================
     # INPUTS PARA GOMAS/COMESTÍVEIS (agora primeiro)
