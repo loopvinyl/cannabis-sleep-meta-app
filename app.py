@@ -92,7 +92,6 @@ def plot_forest(df, results):
     x_max = max(2.5, ci_upper.max() + 0.2) if len(ci_upper) > 0 else 2.5
     ax.set_xlim(x_min, x_max)
 
-    # Formatação do eixo X com vírgula decimal no PT
     if lang == "en":
         ax.set_xlabel("Cohen's d", fontsize=10)
         ax.set_title("Forest Plot", fontsize=12)
@@ -101,10 +100,8 @@ def plot_forest(df, results):
         ax.set_xlabel("d de Cohen", fontsize=10)
         ax.set_title("Gráfico de Floresta", fontsize=12)
         label_pooled = "Combinado"
-        # Aplica formatação personalizada no eixo X
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
 
-    # Diamante do efeito combinado
     diamond_y = -0.5
     diamond_x = results["pooled_d"]
     ax.plot(
@@ -143,7 +140,6 @@ def plot_funnel(df, results):
         ax.set_xlabel("d de Cohen", fontsize=10)
         ax.set_ylabel("Erro Padrão", fontsize=10)
         ax.set_title("Gráfico de Funil (Viés de Publicação)", fontsize=12)
-        # Aplica formatação personalizada nos eixos
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
         ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, p: fmt_num(y, 2)))
 
@@ -182,7 +178,6 @@ def plot_sensitivity(df, results):
         ax.set_xlabel("d de Cohen (leave-one-out)", fontsize=10)
         ax.set_title("Análise de Sensibilidade (Leave-One-Out)", fontsize=12)
         ax.axvline(x=d_orig, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="d combinado original")
-        # Aplica formatação personalizada no eixo X
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: fmt_num(x, 2)))
 
     ax.set_yticks(y_pos)
@@ -215,12 +210,12 @@ def main():
     lang = st.session_state.lang
 
     # ======================================================================
-    # INICIALIZAÇÃO DOS CHECKBOXES (TODOS MARCADOS, INCLUSIVE PAKDEE)
+    # INICIALIZAÇÃO DOS CHECKBOXES (TODOS MARCADOS)
     # ======================================================================
     if "initialized" not in st.session_state:
         for idx in range(len(STUDIES)):
             key = f"include_{idx}"
-            st.session_state[key] = True  # Todos começam marcados
+            st.session_state[key] = True
         st.session_state.initialized = True
 
     # ======================================================================
@@ -279,7 +274,6 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
-            # Garantir que a chave existe (fallback)
             if key not in st.session_state:
                 st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -310,6 +304,16 @@ def main():
 
             st.divider()
             st.subheader("📈 Meta-Analysis Results")
+
+            # Explicação inicial sobre os resultados
+            st.markdown("""
+            **What do these numbers mean?**  
+            - **Pooled Effect (d):** The average effect across all selected studies.  
+            - **95% CI:** The range where the true effect likely lies.  
+            - **P-value:** Tells us if the effect is statistically significant (p < 0.05 means "yes").  
+            - **I²:** Measures how much the studies differ from each other (0% = identical, 100% = completely different).
+            """)
+
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Pooled Effect (d)", fmt_num(results["pooled_d"], 3))
             c2.metric("95% CI", f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]")
@@ -318,6 +322,13 @@ def main():
 
             st.divider()
             st.subheader("📋 Study Weights")
+
+            # Explicação sobre a tabela de pesos
+            st.markdown("""
+            **What are study weights?**  
+            Studies with smaller error bars (more precise estimates) get more weight in the final average. Larger squares in the Forest Plot correspond to higher weights.
+            """)
+
             df_weights = df_selected.copy()
             df_weights["Weight (%)"] = [fmt_num(w, 2) for w in results["weights"]]
             df_display = df_weights[["id", "type", "n", "d", "se", "Weight (%)"]]
@@ -333,7 +344,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Right-click to save.")
-                st.caption("**What this shows:** Each horizontal line represents the confidence interval of a single study. The square's size indicates its weight in the meta-analysis. The red diamond at the bottom shows the overall pooled effect.")
+                st.caption("**What this shows:** Each horizontal line represents the confidence interval of a single study. The square's size indicates its weight in the meta-analysis. The red diamond at the bottom shows the overall pooled effect. If the diamond does not cross the vertical zero line, the effect is statistically significant.")
 
             st.divider()
             st.subheader("🔍 Funnel Plot (Publication Bias)")
@@ -341,7 +352,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Asymmetry may indicate publication bias.")
-                st.caption("**What this shows:** Each dot is a study. If the plot is symmetric (like an inverted funnel), it suggests no publication bias. If studies are missing on one side, there might be bias.")
+                st.caption("**What this shows:** Each dot is a study. If the plot is symmetric (like an inverted funnel), it suggests no publication bias. If studies are missing on one side, there might be bias (e.g., small studies with negative results not published).")
 
             st.divider()
             st.subheader("📉 Sensitivity Analysis (Leave-One-Out)")
@@ -349,7 +360,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("If effect remains stable, result is robust.")
-                st.caption("**What this shows:** Each point shows the pooled effect after removing that study. If all points stay close to the red line, the result is stable and not driven by any single study.")
+                st.caption("**What this shows:** Each point shows the pooled effect after removing that study. If all points stay close to the red line, the result is stable and not driven by any single study. Large deviations suggest that study is overly influential.")
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
@@ -388,7 +399,6 @@ def main():
         selected_ids = []
         for idx, row in df_studies.iterrows():
             key = f"include_{idx}"
-            # Garantir que a chave existe (fallback)
             if key not in st.session_state:
                 st.session_state[key] = True
             c1, c2, c3, c4, c5, c6 = st.columns([0.6, 3.5, 1.5, 1, 1.5, 1.5])
@@ -421,6 +431,16 @@ def main():
 
             st.divider()
             st.subheader("📈 Resultados da Meta-Análise")
+
+            # Explicação inicial sobre os resultados (em português)
+            st.markdown("""
+            **O que significam esses números?**  
+            - **Efeito Combinado (d):** A média dos efeitos de todos os estudos selecionados.  
+            - **IC 95%:** O intervalo onde provavelmente está o efeito verdadeiro.  
+            - **Valor-p:** Indica se o efeito é estatisticamente significativo (p < 0,05 significa "sim").  
+            - **I²:** Mede o quanto os estudos diferem entre si (0% = idênticos, 100% = completamente diferentes).
+            """)
+
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Efeito Combinado (d)", fmt_num(results["pooled_d"], 3))
             c2.metric("IC 95%", f"[{fmt_num(results['ci_lb'], 3)}, {fmt_num(results['ci_ub'], 3)}]")
@@ -429,6 +449,13 @@ def main():
 
             st.divider()
             st.subheader("📋 Pesos dos Estudos")
+
+            # Explicação sobre a tabela de pesos (em português)
+            st.markdown("""
+            **O que são os pesos dos estudos?**  
+            Estudos com barras de erro menores (estimativas mais precisas) recebem mais peso na média final. Quadrados maiores no Forest Plot correspondem a pesos maiores.
+            """)
+
             df_weights = df_selected.copy()
             df_weights["Peso (%)"] = [fmt_num(w, 2) for w in results["weights"]]
             df_display = df_weights[["id", "type", "n", "d", "se", "Peso (%)"]]
@@ -452,7 +479,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Clique com o direito para salvar.")
-                st.caption("**O que mostra:** Cada linha horizontal é o intervalo de confiança de um estudo. O tamanho do quadrado indica seu peso na meta-análise. O losango vermelho na parte inferior mostra o efeito combinado geral.")
+                st.caption("**O que mostra:** Cada linha horizontal é o intervalo de confiança de um estudo. O tamanho do quadrado indica seu peso na meta-análise. O losango vermelho na parte inferior mostra o efeito combinado geral. Se o losango não cruzar a linha vertical zero, o efeito é estatisticamente significativo.")
 
             st.divider()
             st.subheader("🔍 Gráfico de Funil (Viés de Publicação)")
@@ -460,7 +487,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Assimetria pode indicar viés de publicação.")
-                st.caption("**O que mostra:** Cada ponto é um estudo. Se o gráfico for simétrico (como um funil invertido), sugere que não há viés de publicação. Se faltarem estudos de um lado, pode haver viés.")
+                st.caption("**O que mostra:** Cada ponto é um estudo. Se o gráfico for simétrico (como um funil invertido), sugere que não há viés de publicação. Se faltarem estudos de um lado, pode haver viés (ex: estudos pequenos com resultados negativos não publicados).")
 
             st.divider()
             st.subheader("📉 Análise de Sensibilidade (Leave-One-Out)")
@@ -468,7 +495,7 @@ def main():
             if fig:
                 st.pyplot(fig)
                 st.caption("Se o efeito se mantém estável, o resultado é robusto.")
-                st.caption("**O que mostra:** Cada ponto mostra o efeito combinado após remover aquele estudo. Se todos os pontos ficarem próximos da linha vermelha, o resultado é estável e não é influenciado por um único estudo.")
+                st.caption("**O que mostra:** Cada ponto mostra o efeito combinado após remover aquele estudo. Se todos os pontos ficarem próximos da linha vermelha, o resultado é estável e não é influenciado por um único estudo. Grandes desvios sugerem que aquele estudo é muito influente.")
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
