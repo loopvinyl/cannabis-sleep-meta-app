@@ -195,38 +195,84 @@ def plot_sensitivity(df, results):
 def render_comparator(results, lang, df_selected):
     """
     Renderiza a tabela comparativa "Sua Dose Atual vs. Estudos".
+    Suporta concentrados (em g com %) e óleos (em mL com mg/mL).
+    Inclui THC, CBD e outros canabinoides (opcionais).
     """
-    # Inicializa os estados dos inputs do comparador
+    # Inicializa os estados dos inputs
+    if "comp_product_type" not in st.session_state:
+        st.session_state.comp_product_type = "concentrado"
     if "comp_thc_conc" not in st.session_state:
         st.session_state.comp_thc_conc = 32.0
+    if "comp_cbd_conc" not in st.session_state:
+        st.session_state.comp_cbd_conc = 0.0
+    if "comp_other_conc" not in st.session_state:
+        st.session_state.comp_other_conc = 0.0
     if "comp_quantity" not in st.session_state:
         st.session_state.comp_quantity = 0.05
+    if "comp_thc_mg_ml" not in st.session_state:
+        st.session_state.comp_thc_mg_ml = 20.0
+    if "comp_cbd_mg_ml" not in st.session_state:
+        st.session_state.comp_cbd_mg_ml = 0.0
+    if "comp_other_mg_ml" not in st.session_state:
+        st.session_state.comp_other_mg_ml = 0.0
+    if "comp_quantity_ml" not in st.session_state:
+        st.session_state.comp_quantity_ml = 0.5
+    if "comp_other_name" not in st.session_state:
+        st.session_state.comp_other_name = "CBG"
 
     st.markdown("---")
     with st.expander("📊 Sua Dose Atual vs. Estudos" if lang == "pt" else "📊 Your Current Dose vs. Studies"):
-        # Explicação inicial (neutra e clínica)
+        # Explicação inicial
         if lang == "pt":
             st.markdown("""
-            Compare a quantidade de THC que você utiliza atualmente com as doses empregadas nos estudos científicos 
-            incluídos nesta meta-análise. Preencha os dados do seu produto abaixo.
+            Compare a quantidade de canabinoides (THC, CBD e outros) que você utiliza atualmente com as doses empregadas nos estudos científicos 
+            incluídos nesta meta-análise. Selecione o tipo do seu produto e preencha os dados abaixo.
             """)
         else:
             st.markdown("""
-            Compare the amount of THC you currently use with the doses employed in the scientific studies 
-            included in this meta-analysis. Fill in your product data below.
+            Compare the amount of cannabinoids (THC, CBD, and others) you currently use with the doses employed in the scientific studies 
+            included in this meta-analysis. Select your product type and fill in the data below.
             """)
 
-        # Inputs do usuário
-        col1, col2 = st.columns(2)
-        with col1:
-            thc_conc = st.number_input(
-                "THC (%)" if lang == "pt" else "THC (%)",
-                min_value=0.0, max_value=100.0, value=st.session_state.comp_thc_conc, step=0.5,
-                key="comp_thc_conc_input",
-                help="Concentração de THC no seu produto (ex: 32%)" if lang == "pt" else "THC concentration in your product (e.g., 32%)"
-            )
-            st.session_state.comp_thc_conc = thc_conc
-        with col2:
+        # Seletor de tipo de produto
+        product_type = st.radio(
+            "Tipo de produto" if lang == "pt" else "Product type",
+            options=["Concentrado/Resina (g)" if lang == "pt" else "Concentrate/Resin (g)", 
+                     "Óleo/Tintura (mL)" if lang == "pt" else "Oil/Tincture (mL)"],
+            key="comp_product_type_radio",
+            horizontal=True,
+            index=0 if st.session_state.comp_product_type == "concentrado" else 1
+        )
+        st.session_state.comp_product_type = "concentrado" if "Concentrado" in product_type else "oleo"
+
+        # Inputs adaptados ao tipo de produto
+        if st.session_state.comp_product_type == "concentrado":
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                thc_conc = st.number_input(
+                    "THC (%)" if lang == "pt" else "THC (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_thc_conc, step=0.5,
+                    key="comp_thc_conc_input",
+                    help="Concentração de THC no seu produto" if lang == "pt" else "THC concentration in your product"
+                )
+                st.session_state.comp_thc_conc = thc_conc
+            with col2:
+                cbd_conc = st.number_input(
+                    "CBD (%)" if lang == "pt" else "CBD (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_cbd_conc, step=0.5,
+                    key="comp_cbd_conc_input",
+                    help="Concentração de CBD no seu produto (opcional)" if lang == "pt" else "CBD concentration in your product (optional)"
+                )
+                st.session_state.comp_cbd_conc = cbd_conc
+            with col3:
+                other_conc = st.number_input(
+                    f"{st.session_state.comp_other_name} (%)" if lang == "pt" else f"{st.session_state.comp_other_name} (%)",
+                    min_value=0.0, max_value=100.0, value=st.session_state.comp_other_conc, step=0.5,
+                    key="comp_other_conc_input",
+                    help=f"Concentração de {st.session_state.comp_other_name} no seu produto (opcional)" if lang == "pt" else f"{st.session_state.comp_other_name} concentration in your product (optional)"
+                )
+                st.session_state.comp_other_conc = other_conc
+            
             quantity = st.number_input(
                 "Quantidade diária (g)" if lang == "pt" else "Daily amount (g)",
                 min_value=0.001, max_value=10.0, value=st.session_state.comp_quantity, step=0.001, format="%.3f",
@@ -234,70 +280,142 @@ def render_comparator(results, lang, df_selected):
                 help="Quantidade do produto que você usa por dia (ex: 0.05g)" if lang == "pt" else "Amount of product you use per day (e.g., 0.05g)"
             )
             st.session_state.comp_quantity = quantity
+            
+            if thc_conc > 0 and quantity > 0:
+                thc_mg = (thc_conc / 100) * quantity * 1000
+                cbd_mg = (cbd_conc / 100) * quantity * 1000 if cbd_conc > 0 else 0
+                other_mg = (other_conc / 100) * quantity * 1000 if other_conc > 0 else 0
+                dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
+                dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_conc > 0 else None
+                dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_conc > 0 else None
+        else:
+            # Óleo/Tintura
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                thc_mg_ml = st.number_input(
+                    "THC (mg/mL)" if lang == "pt" else "THC (mg/mL)",
+                    min_value=0.0, max_value=200.0, value=st.session_state.comp_thc_mg_ml, step=0.5,
+                    key="comp_thc_mg_ml_input",
+                    help="Concentração de THC no seu óleo" if lang == "pt" else "THC concentration in your oil"
+                )
+                st.session_state.comp_thc_mg_ml = thc_mg_ml
+            with col2:
+                cbd_mg_ml = st.number_input(
+                    "CBD (mg/mL)" if lang == "pt" else "CBD (mg/mL)",
+                    min_value=0.0, max_value=200.0, value=st.session_state.comp_cbd_mg_ml, step=0.5,
+                    key="comp_cbd_mg_ml_input",
+                    help="Concentração de CBD no seu óleo (opcional)" if lang == "pt" else "CBD concentration in your oil (optional)"
+                )
+                st.session_state.comp_cbd_mg_ml = cbd_mg_ml
+            with col3:
+                other_mg_ml = st.number_input(
+                    f"{st.session_state.comp_other_name} (mg/mL)" if lang == "pt" else f"{st.session_state.comp_other_name} (mg/mL)",
+                    min_value=0.0, max_value=200.0, value=st.session_state.comp_other_mg_ml, step=0.5,
+                    key="comp_other_mg_ml_input",
+                    help=f"Concentração de {st.session_state.comp_other_name} no seu óleo (opcional)" if lang == "pt" else f"{st.session_state.comp_other_name} concentration in your oil (optional)"
+                )
+                st.session_state.comp_other_mg_ml = other_mg_ml
+            
+            quantity_ml = st.number_input(
+                "Quantidade diária (mL)" if lang == "pt" else "Daily amount (mL)",
+                min_value=0.01, max_value=10.0, value=st.session_state.comp_quantity_ml, step=0.05, format="%.2f",
+                key="comp_quantity_ml_input",
+                help="Quantidade de óleo que você usa por dia (ex: 0.5 mL)" if lang == "pt" else "Amount of oil you use per day (e.g., 0.5 mL)"
+            )
+            st.session_state.comp_quantity_ml = quantity_ml
+            
+            if thc_mg_ml > 0 and quantity_ml > 0:
+                thc_mg = thc_mg_ml * quantity_ml
+                cbd_mg = cbd_mg_ml * quantity_ml if cbd_mg_ml > 0 else 0
+                other_mg = other_mg_ml * quantity_ml if other_mg_ml > 0 else 0
+                dose_label_thc = f"{fmt_num(thc_mg, 1)} mg THC"
+                dose_label_cbd = f"{fmt_num(cbd_mg, 1)} mg CBD" if cbd_mg_ml > 0 else None
+                dose_label_other = f"{fmt_num(other_mg, 1)} mg {st.session_state.comp_other_name}" if other_mg_ml > 0 else None
 
-        if thc_conc > 0 and quantity > 0:
-            # Cálculo do THC ingerido
-            thc_mg_per_g = thc_conc * 10  # 32% = 320 mg/g
-            user_thc_mg = thc_mg_per_g * quantity
-
-            st.markdown("---")
-            st.markdown(f"**🧪 {fmt_num(user_thc_mg, 1)} mg** de THC por dia." if lang == "pt" else f"**🧪 {fmt_num(user_thc_mg, 1)} mg** of THC per day.")
+        st.markdown("---")
+        
+        # Exibe o resultado do cálculo APENAS se houver dados válidos
+        if (st.session_state.comp_product_type == "concentrado" and thc_conc > 0 and quantity > 0) or \
+           (st.session_state.comp_product_type == "oleo" and thc_mg_ml > 0 and quantity_ml > 0):
+            
+            # Monta a frase com as doses
+            dose_text = f"**🧪 {dose_label_thc}**"
+            if dose_label_cbd:
+                dose_text += f", {dose_label_cbd}"
+            if dose_label_other:
+                dose_text += f", {dose_label_other}"
+            dose_text += " por dia." if lang == "pt" else " per day."
+            st.markdown(dose_text)
 
             # Montar dados da tabela
             dados_tabela = []
 
             # Linha do usuário (sempre a primeira) - com destaque visual
-            dados_tabela.append({
+            user_row = {
                 "Fonte" if lang == "pt" else "Source": "🟢 **" + ("Sua Dose Atual" if lang == "pt" else "Your Current Dose") + "**",
-                "Dose (mg)" if lang == "pt" else "Dose (mg)": f"{user_thc_mg:.1f}",
+                "THC (mg)" if lang == "pt" else "THC (mg)": f"{thc_mg:.1f}",
+                "CBD (mg)" if lang == "pt" else "CBD (mg)": f"{cbd_mg:.1f}" if cbd_mg > 0 else "—",
+                f"{st.session_state.comp_other_name} (mg)" if lang == "pt" else f"{st.session_state.comp_other_name} (mg)": f"{other_mg:.1f}" if other_mg > 0 else "—",
                 "Comparação" if lang == "pt" else "Comparison": "🔹 " + ("(Referência)" if lang == "pt" else "(Reference)")
-            })
+            }
+            dados_tabela.append(user_row)
 
             # Estudos de referência (com valores fixos e faixas)
             estudos_ref = [
-                {"nome": "Pakdee et al. (2026)", "dose": 2.5, "tipo": "fixa", "desc": "Dose baixa (óleo Tailândia)"},
-                {"nome": "Ried et al. (2023)", "dose": 15.0, "tipo": "fixa", "desc": "Dose moderada (óleo Entoura)"},
-                {"nome": "Montebello et al. (2022)", "dose_min": 11.0, "dose_max": 19.0, "tipo": "faixa", "desc": "Nabiximols spray 1:1"},
-                {"nome": "UK Registries (média)", "dose": 20.0, "tipo": "fixa", "desc": "Datta, Erridge, Vivek"},
-                {"nome": "Erridge et al. (2026)", "dose": 60.0, "tipo": "fixa", "desc": "Dose alta (24 meses)"},
+                {"nome": "Pakdee et al. (2026)", "thc": 2.5, "cbd": None, "tipo": "fixa", "desc": "Dose baixa (óleo Tailândia)"},
+                {"nome": "Ried et al. (2023)", "thc": 15.0, "cbd": 22.5, "tipo": "fixa", "desc": "Dose moderada (óleo Entoura 10:15)"},
+                {"nome": "Montebello et al. (2022)", "thc_min": 11.0, "thc_max": 19.0, "cbd": None, "tipo": "faixa", "desc": "Nabiximols spray 1:1"},
+                {"nome": "UK Registries (média)", "thc": 20.0, "cbd": None, "tipo": "fixa", "desc": "Datta, Erridge, Vivek"},
+                {"nome": "Erridge et al. (2026)", "thc": 60.0, "cbd": None, "tipo": "fixa", "desc": "Dose alta (24 meses)"},
             ]
 
             for estudo in estudos_ref:
                 if estudo["tipo"] == "fixa":
-                    dose_float = estudo["dose"]
-                    if abs(dose_float - user_thc_mg) < 1.0:
+                    thc_dose = estudo["thc"]
+                    if abs(thc_dose - thc_mg) < 1.0:
                         comparacao = "✅ " + ("Muito Próxima" if lang == "pt" else "Very Close")
-                    elif dose_float > user_thc_mg:
+                    elif thc_dose > thc_mg:
                         comparacao = "⬆️ " + ("Maior" if lang == "pt" else "Higher") + " (" + ("sua dose é menor" if lang == "pt" else "your dose is lower") + ")"
                     else:
                         comparacao = "⬇️ " + ("Menor" if lang == "pt" else "Lower") + " (" + ("sua dose é maior" if lang == "pt" else "your dose is higher") + ")"
-                    dose_str = f"{dose_float:.1f}"
+                    thc_str = f"{thc_dose:.1f}"
+                    cbd_str = f"{estudo['cbd']:.1f}" if estudo.get('cbd') else "—"
                 else:  # faixa
-                    if estudo["dose_min"] <= user_thc_mg <= estudo["dose_max"]:
+                    if estudo["thc_min"] <= thc_mg <= estudo["thc_max"]:
                         comparacao = "✅ " + ("Dentro da Faixa" if lang == "pt" else "Within Range")
-                    elif user_thc_mg < estudo["dose_min"]:
+                    elif thc_mg < estudo["thc_min"]:
                         comparacao = "⬆️ " + ("Abaixo da Faixa" if lang == "pt" else "Below Range")
                     else:
                         comparacao = "⬇️ " + ("Acima da Faixa" if lang == "pt" else "Above Range")
-                    dose_str = f"{estudo['dose_min']:.1f} – {estudo['dose_max']:.1f}"
+                    thc_str = f"{estudo['thc_min']:.1f} – {estudo['thc_max']:.1f}"
+                    cbd_str = "—"
 
-                dados_tabela.append({
+                # Monta a linha do estudo
+                row = {
                     "Fonte" if lang == "pt" else "Source": estudo["nome"] + " (" + estudo["desc"] + ")",
-                    "Dose (mg)" if lang == "pt" else "Dose (mg)": dose_str,
+                    "THC (mg)" if lang == "pt" else "THC (mg)": thc_str,
+                    "CBD (mg)" if lang == "pt" else "CBD (mg)": cbd_str,
+                    f"{st.session_state.comp_other_name} (mg)" if lang == "pt" else f"{st.session_state.comp_other_name} (mg)": "—",
                     "Comparação" if lang == "pt" else "Comparison": comparacao
-                })
+                }
+                dados_tabela.append(row)
 
             # Exibir tabela
             df_tabela = pd.DataFrame(dados_tabela)
             st.dataframe(df_tabela, use_container_width=True, hide_index=True)
 
-            # Interpretação simples e ética
+            # Nota sobre a comparação
             if lang == "pt":
-                st.caption("💡 Esta comparação mostra onde sua dose atual se posiciona em relação à literatura científica. Não recomendamos alterações na dose sem orientação médica.")
+                st.caption("💡 A comparação é baseada na dose de THC. Os valores de CBD e outros canabinoides são apresentados como referência adicional.")
+                st.caption("⚠️ Esta comparação mostra onde sua dose atual se posiciona em relação à literatura científica. Não recomendamos alterações na dose sem orientação médica.")
             else:
-                st.caption("💡 This comparison shows where your current dose stands relative to the scientific literature. We do not recommend dose changes without medical supervision.")
+                st.caption("💡 The comparison is based on THC dose. CBD and other cannabinoid values are shown as additional reference.")
+                st.caption("⚠️ This comparison shows where your current dose stands relative to the scientific literature. We do not recommend dose changes without medical supervision.")
         else:
-            st.info("👈 Insira a concentração e a quantidade diária para ver a comparação." if lang == "pt" else "👈 Enter the concentration and daily amount to see the comparison.")
+            if lang == "pt":
+                st.info("👈 Preencha a concentração e a quantidade diária para ver a comparação.")
+            else:
+                st.info("👈 Fill in the concentration and daily amount to see the comparison.")
 
 # ----------------------------------------------------------------------------
 # 3. BASE DE DADOS (10 ESTUDOS)
