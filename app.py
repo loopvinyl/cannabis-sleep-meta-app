@@ -361,10 +361,15 @@ def main():
 
             st.divider()
             st.subheader("📖 Interpretation Guide")
-            # --- INTERPRETAÇÃO DINÂMICA (INGLÊS) ---
+            # --- INTERPRETAÇÃO DINÂMICA (INGLÊS) - CORRIGIDA ---
             d = results["pooled_d"]
+            i2 = results["i2"]
+            p = results["p_val"]
+            ci_lb = results["ci_lb"]
+            ci_ub = results["ci_ub"]
             effect_desc = "small" if abs(d) < 0.2 else "moderate" if abs(d) < 0.5 else "large"
-            # Frase dinâmica explicando o Cohen's d com o valor atual
+            het_desc = "low" if i2 < 25 else "moderate" if i2 < 50 else "high"
+            
             st.markdown(f"""
             **Cohen's d = {d:.3f}** – This means the treatment improved sleep by **{abs(d):.1f} standard deviations** compared to the control.  
             This is a **{effect_desc}** effect, indicating a **{'clinically relevant' if abs(d) >= 0.5 else 'modest'}** improvement in sleep quality.
@@ -375,9 +380,7 @@ def main():
             - **d ≥ 0.8:** Large effect (substantial and clinically meaningful).
             """)
             st.markdown(f"**I² = {i2:.1f}%** – **{het_desc}** heterogeneity.")
-            p = results["p_val"]
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significant' if p < 0.05 else 'Not significant'} (p < 0.05).")
-            ci_lb, ci_ub = results["ci_lb"], results["ci_ub"]
             contains_zero = "does" if ci_lb < 0 < ci_ub else "does not"
             st.markdown(f"95% CI [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contain zero.")
         else:
@@ -501,10 +504,15 @@ def main():
 
             st.divider()
             st.subheader("📖 Guia de Interpretação")
-            # --- INTERPRETAÇÃO DINÂMICA (PORTUGUÊS) ---
+            # --- INTERPRETAÇÃO DINÂMICA (PORTUGUÊS) - CORRIGIDA ---
             d = results["pooled_d"]
+            i2 = results["i2"]
+            p = results["p_val"]
+            ci_lb = results["ci_lb"]
+            ci_ub = results["ci_ub"]
             effect_desc = "pequeno" if abs(d) < 0.2 else "moderado" if abs(d) < 0.5 else "grande"
-            # Frase dinâmica explicando o Cohen's d com o valor atual
+            het_desc = "baixa" if i2 < 25 else "moderada" if i2 < 50 else "alta"
+            
             st.markdown(f"""
             **d de Cohen = {d:.3f}** – Isso significa que o tratamento melhorou o sono em **{abs(d):.1f} desvios padrão** em comparação com o controle.  
             Este é um efeito **{effect_desc}**, indicando uma melhora **{'clinicamente relevante' if abs(d) >= 0.5 else 'modesta'}** na qualidade do sono.
@@ -514,12 +522,8 @@ def main():
             - **d ≈ 0,5:** Efeito moderado (claramente perceptível).  
             - **d ≥ 0,8:** Efeito grande (substancial e clinicamente significativo).
             """)
-            i2 = results["i2"]
-            het_desc = "baixa" if i2 < 25 else "moderada" if i2 < 50 else "alta"
             st.markdown(f"**I² = {i2:.1f}%** – Heterogeneidade **{het_desc}**.")
-            p = results["p_val"]
             st.markdown(f"**p = {fmt_num(p, 3)}** – {'Significativo' if p < 0.05 else 'Não significativo'} (p < 0,05).")
-            ci_lb, ci_ub = results["ci_lb"], results["ci_ub"]
             contains_zero = "sim" if ci_lb < 0 < ci_ub else "não"
             st.markdown(f"IC 95% [{fmt_num(ci_lb, 3)}, {fmt_num(ci_ub, 3)}] {contains_zero} contém zero.")
         else:
